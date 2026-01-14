@@ -40,9 +40,16 @@ class Settings(BaseSettings):
     reddit_user_agent: str = "BHQueue/0.1.0"
 
     # Telegram API
-    telegram_api_id: Optional[int] = None
+    telegram_api_id: Optional[str] = None  # Stored as string, converted when needed
     telegram_api_hash: Optional[str] = None
     telegram_phone: Optional[str] = None
+    
+    @property
+    def telegram_api_id_int(self) -> Optional[int]:
+        """Get telegram_api_id as integer."""
+        if self.telegram_api_id:
+            return int(self.telegram_api_id)
+        return None
 
     # OAuth Providers
     google_client_id: Optional[str] = None

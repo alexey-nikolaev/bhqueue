@@ -72,8 +72,12 @@ async def health_check():
     return {"status": "healthy"}
 
 
-# Routers will be added here as we build them:
-# from app.routers import auth, queue, clubs
+# Routers
+from app.routers import clubs
+
+app.include_router(clubs.router, prefix="/api/clubs", tags=["Clubs"])
+
+# Future routers:
+# from app.routers import auth, queue
 # app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 # app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
-# app.include_router(clubs.router, prefix="/api/clubs", tags=["Clubs"])

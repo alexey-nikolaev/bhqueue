@@ -8,10 +8,11 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 
+import pytz
 from sqlalchemy import select
 
 from app.database import async_session_maker, init_db
-from app.models import Club, Event, SpatialMarker
+from app.models import Club, SpatialMarker
 
 
 # Berghain building polygon (approximate)
@@ -45,33 +46,6 @@ BERGHAIN_MARKERS = [
     # - Identify frequently mentioned landmarks
     # - Map them to GPS coordinates and typical wait times
 ]
-
-
-def get_next_klubnacht() -> tuple[datetime, datetime, datetime]:
-    """
-    Calculate the next Klubnacht times.
-    
-    Klubnacht runs from Saturday 23:59 to Monday 08:00.
-    Queue opens at Saturday 21:00.
-    """
-    now = datetime.utcnow()
-    
-    # Find next Saturday
-    days_until_saturday = (5 - now.weekday()) % 7
-    if days_until_saturday == 0 and now.hour >= 21:
-        # It's Saturday and past 21:00, use this one
-        next_saturday = now.date()
-    elif days_until_saturday == 0:
-        # It's Saturday before 21:00, use this one
-        next_saturday = now.date()
-    else:
-        next_saturday = now.date() + timedelta(days=days_until_saturday)
-    
-    queue_opens = datetime.combine(next_saturday, datetime.min.time().replace(hour=21, minute=0))
-    starts_at = datetime.combine(next_saturday, datetime.min.time().replace(hour=23, minute=59))
-    ends_at = datetime.combine(next_saturday + timedelta(days=2), datetime.min.time().replace(hour=8, minute=0))
-    
-    return queue_opens, starts_at, ends_at
 
 
 async def seed_berghain() -> None:
@@ -122,30 +96,11 @@ async def seed_berghain() -> None:
             session.add(marker)
             print(f"  Created marker: {marker_data['name']}")
         
-        # Create next Klubnacht event
-        queue_opens, starts_at, ends_at = get_next_klubnacht()
-        
-        result = await session.execute(
-            select(Event).where(
-                Event.club_id == berghain.id,
-                Event.starts_at == starts_at,
-            )
-        )
-        if result.scalar_one_or_none():
-            print(f"Klubnacht on {starts_at.date()} already exists, skipping.")
-        else:
-            event = Event(
-                id=uuid.uuid4(),
-                club_id=berghain.id,
-                name="Klubnacht",
-                queue_opens_at=queue_opens,
-                starts_at=starts_at,
-                ends_at=ends_at,
-            )
-            session.add(event)
-            print(f"Created event: Klubnacht on {starts_at.date()}")
-        
         await session.commit()
+        
+        # Note: Events are now created on-the-fly when needed
+        # (when a user joins queue or when we parse data for that weekend)
+        # See app/services/event_service.py
         print("\nSeed data complete!")
 
 
