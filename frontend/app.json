@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "KlubFlow",
+    "slug": "klubflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.klubflow.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "KlubFlow needs your location to track your position in the queue and estimate wait times."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.klubflow.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "KlubFlow needs your location to track your position in the queue."
+        }
+      ]
+    ]
+  }
+}

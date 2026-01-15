@@ -1,0 +1,16 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Electric Purple: Full height chevrons with ~80px arm thickness -->
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) - 80px wide -->
+  <rect x="120" y="150" width="80" height="724" fill="#8A8A8A"/>
+  
+  <!-- K's chevron (gray) - single outlined < shape -->
+  <!-- Outer edge goes from top-right to tip to bottom-right -->
+  <!-- Inner edge creates the hollow, making arms ~80px thick -->
+  <path d="M520,150 L120,512 L520,874 L520,794 L200,512 L520,230 Z" fill="#8A8A8A"/>
+  
+  <!-- Purple chevron - same shape, offset to the right -->
+  <path d="M880,150 L480,512 L880,874 L880,794 L560,512 L880,230 Z" fill="#BF40FF"/>
+</svg>

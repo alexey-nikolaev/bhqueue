@@ -1,0 +1,14 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Version 3: Tighter spacing, more compact -->
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) -->
+  <rect x="160" y="200" width="70" height="624" fill="#8A8A8A"/>
+  
+  <!-- K's chevron part (gray) -->
+  <polygon points="530,200 530,300 290,512 530,724 530,824 230,512" fill="#8A8A8A"/>
+  
+  <!-- Orange chevron - tighter -->
+  <polygon points="730,200 730,300 490,512 730,724 730,824 430,512" fill="#FF6B35"/>
+</svg>

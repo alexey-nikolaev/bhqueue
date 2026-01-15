@@ -1,0 +1,13 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Version 5: K unchanged, | matches triangle height, purple shifted right, centered & enlarged -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) - height matches the purple triangle -->
+  <rect x="50" y="112" width="130" height="800" fill="#8A8A8A"/>
+  
+  <!-- K's chevron part (gray) - outlined < shape, same proportions as v4 but scaled -->
+  <polygon points="620,112 620,252 300,512 620,772 620,912 50,512" fill="#8A8A8A"/>
+  
+  <!-- Purple solid triangle - shifted right -->
+  <polygon points="974,112 424,512 974,912" fill="#BF40FF"/>
+</svg>

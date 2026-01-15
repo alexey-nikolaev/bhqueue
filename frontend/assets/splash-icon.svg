@@ -1,0 +1,7 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- K letter in gray -->
+  <text x="30" y="140" font-family="Arial Black, Arial, sans-serif" font-size="120" font-weight="900" fill="#8A8A8A">K</text>
+  
+  <!-- << symbols in neon green -->
+  <text x="100" y="140" font-family="Arial Black, Arial, sans-serif" font-size="90" font-weight="900" fill="#39FF14">&lt;&lt;</text>
+</svg>

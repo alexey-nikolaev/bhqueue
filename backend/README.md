@@ -1,4 +1,6 @@
-# BHQueue Backend
+# KlubFlow Backend
+
+*Keep the night moving*
 
 Real-time queue tracking API for Berlin nightclubs, starting with Berghain.
 
@@ -39,7 +41,7 @@ cp .env.example .env
 
 4. Create database:
 ```bash
-createdb bhqueue
+createdb klubflow
 ```
 
 5. Run migrations:
@@ -85,7 +87,7 @@ backend/
 Deployed on Heroku with PostgreSQL addon.
 
 ```bash
-heroku create bhqueue-api
+heroku create klubflow-api
 heroku addons:create heroku-postgresql:mini
 git push heroku main
 ```

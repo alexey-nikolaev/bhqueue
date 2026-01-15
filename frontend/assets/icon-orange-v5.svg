@@ -1,0 +1,14 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Version 5: Bolder, more impactful -->
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) - thicker -->
+  <rect x="130" y="170" width="100" height="684" fill="#8A8A8A"/>
+  
+  <!-- K's chevron part (gray) - bolder -->
+  <polygon points="600,170 600,310 340,512 600,714 600,854 230,512" fill="#8A8A8A"/>
+  
+  <!-- Orange chevron - bolder, matching -->
+  <polygon points="870,170 870,310 610,512 870,714 870,854 500,512" fill="#FF6B35"/>
+</svg>

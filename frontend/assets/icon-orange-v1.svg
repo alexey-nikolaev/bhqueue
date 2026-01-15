@@ -1,0 +1,14 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Version 1: K's < part is identical to the orange < but in gray -->
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) -->
+  <rect x="150" y="200" width="80" height="624" fill="#8A8A8A"/>
+  
+  <!-- K's chevron part (gray) - same shape as the orange one -->
+  <polygon points="630,200 630,320 350,512 630,704 630,824 230,512" fill="#8A8A8A"/>
+  
+  <!-- Orange chevron - identical shape, positioned to the right -->
+  <polygon points="874,200 874,320 594,512 874,704 874,824 474,512" fill="#FF6B35"/>
+</svg>

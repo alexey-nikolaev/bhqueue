@@ -1,0 +1,13 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Laser Red: K's < merged into vertical bar seamlessly -->
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+  
+  <!-- Vertical bar (gray) - thinner 60px -->
+  <rect x="150" y="200" width="60" height="624" fill="#8A8A8A"/>
+  
+  <!-- K's chevron part (gray) - tip touches/merges with vertical bar -->
+  <polygon points="630,200 630,320 350,512 630,704 630,824 150,512" fill="#8A8A8A"/>
+  
+  <!-- Chevron - LASER RED #FF3131 -->
+  <polygon points="874,200 874,320 594,512 874,704 874,824 394,512" fill="#FF3131"/>
+</svg>
