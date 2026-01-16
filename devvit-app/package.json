@@ -1,0 +1,22 @@
+{
+  "name": "klubflow",
+  "version": "0.0.1",
+  "description": "KlubFlow Reddit queue monitor for Berlin nightclubs",
+  "type": "module",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "main": "src/main.ts",
+  "scripts": {
+    "build": "devvit build"
+  },
+  "dependencies": {
+    "@devvit/public-api": "0.12.8"
+  },
+  "devDependencies": {
+    "@devvit/tsconfig": "0.12.8",
+    "typescript": "5.6.3"
+  },
+  "devvit": {
+    "name": "klubflow"
+  }
+}

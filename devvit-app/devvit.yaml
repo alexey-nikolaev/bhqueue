@@ -1,0 +1,8 @@
+name: klubflow
+version: 0.0.2
+description: >-
+  KlubFlow queue monitor - tracks Berlin nightclub queue updates from Reddit
+  posts
+permissions:
+  - read
+  - scheduler
