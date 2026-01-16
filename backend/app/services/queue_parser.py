@@ -9,7 +9,7 @@ Supports context-aware parsing: combines parent message + reply for better accur
 
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 
 @dataclass
@@ -18,6 +18,7 @@ class ParsedQueueData:
     wait_minutes: Optional[int] = None
     queue_length: Optional[str] = None  # 'none', 'short', 'medium', 'long', 'very_long'
     spatial_marker: Optional[str] = None
+    marker_modifier: Optional[int] = None  # meters past (+) or before (-) marker
     rejection_mentioned: bool = False
     entry_mentioned: bool = False
     confidence: float = 0.5
@@ -25,18 +26,23 @@ class ParsedQueueData:
 
 
 # Known spatial markers around Berghain (ordered by distance from entrance)
+# Format: (keyword, display_name, base_distance_meters)
 SPATIAL_MARKERS = [
-    ('wriezener', 'Wriezener Straße'),
-    ('around the block', 'Around the block'),
-    ('bridge', 'Bridge'),
-    ('halfway', 'Halfway'),
-    ('corner', 'Corner'),
-    ('späti', 'Späti'),
-    ('snack', 'Snack shop'),
-    ('kiosk', 'Kiosk'),
-    ('entrance', 'Entrance'),
-    ('door', 'Door'),
+    ('wriezener', 'Wriezener Straße', 400),
+    ('around the block', 'Around the block', 350),
+    ('bridge', 'Bridge', 300),
+    ('halfway', 'Halfway', 200),
+    ('corner', 'Corner', 150),
+    ('späti', 'Späti', 120),
+    ('spati', 'Späti', 120),  # Without umlaut
+    ('snack', 'Snack shop', 100),
+    ('kiosk', 'Kiosk', 80),
+    ('entrance', 'Entrance', 10),
+    ('door', 'Door', 5),
 ]
+
+# Build lookup dict for marker distances
+MARKER_DISTANCES = {name: dist for _, name, dist in SPATIAL_MARKERS}
 
 # Queue length patterns
 QUEUE_LENGTH_PATTERNS = [
@@ -81,6 +87,69 @@ def is_queue_question(text: str) -> bool:
         if re.search(pattern, lower_text, re.IGNORECASE):
             return True
     return '?' in text and any(w in lower_text for w in ['queue', 'line', 'wait', 'q', 'schlange', 'how', 'long'])
+
+
+def _parse_spatial_marker_with_modifier(text: str) -> Tuple[Optional[str], Optional[int]]:
+    """
+    Parse spatial marker with optional distance modifier.
+    
+    Handles patterns like:
+    - "Kiosk +10m" (10 meters past kiosk)
+    - "past kiosk" (slightly past)
+    - "before kiosk" (slightly before)
+    - "almost at kiosk" (slightly before)
+    
+    Returns:
+        Tuple of (marker_name, modifier_meters)
+        modifier is positive for "past", negative for "before"
+    """
+    lower_text = text.lower()
+    
+    for marker_key, marker_name, _ in SPATIAL_MARKERS:
+        if marker_key not in lower_text:
+            continue
+        
+        # Found marker, now look for modifiers
+        modifier = None
+        
+        # Pattern: "marker +10m" or "marker +10 m" or "marker + 10m"
+        plus_pattern = rf'{marker_key}\s*\+\s*(\d+)\s*m\b'
+        match = re.search(plus_pattern, lower_text)
+        if match:
+            modifier = int(match.group(1))
+            return marker_name, modifier
+        
+        # Pattern: "marker -10m" (unlikely but handle it)
+        minus_pattern = rf'{marker_key}\s*-\s*(\d+)\s*m\b'
+        match = re.search(minus_pattern, lower_text)
+        if match:
+            modifier = -int(match.group(1))
+            return marker_name, modifier
+        
+        # Pattern: "past marker", "beyond marker", "after marker"
+        past_patterns = [
+            rf'(past|beyond|after)\s+(?:the\s+)?{marker_key}',
+            rf'{marker_key}\s+(?:and\s+)?(past|beyond|further)',
+        ]
+        for pattern in past_patterns:
+            if re.search(pattern, lower_text):
+                modifier = 20  # Assume ~20m past
+                return marker_name, modifier
+        
+        # Pattern: "before marker", "almost at marker", "approaching marker"
+        before_patterns = [
+            rf'(before|almost\s+at|approaching|nearly\s+at)\s+(?:the\s+)?{marker_key}',
+            rf'(almost|nearly|just\s+before)\s+{marker_key}',
+        ]
+        for pattern in before_patterns:
+            if re.search(pattern, lower_text):
+                modifier = -15  # Assume ~15m before
+                return marker_name, modifier
+        
+        # Pattern: "to marker" or "at marker" (no modifier)
+        return marker_name, None
+    
+    return None, None
 
 
 def parse_queue_message(text: str, parent_text: Optional[str] = None) -> ParsedQueueData:
@@ -160,12 +229,14 @@ def _parse_text(text: str) -> ParsedQueueData:
             confidence_factors.append(0.8)  # High confidence when we find explicit time
             break
     
-    # Parse spatial markers
-    for marker_key, marker_name in SPATIAL_MARKERS:
-        if marker_key in lower_text:
-            result.spatial_marker = marker_name
-            confidence_factors.append(0.6)
-            break
+    # Parse spatial markers with modifiers
+    marker, modifier = _parse_spatial_marker_with_modifier(text)
+    if marker:
+        result.spatial_marker = marker
+        result.marker_modifier = modifier
+        confidence_factors.append(0.6)
+        if modifier is not None:
+            confidence_factors.append(0.2)  # Bonus for having modifier info
     
     # Parse queue length description
     for pattern, length in QUEUE_LENGTH_PATTERNS:
@@ -207,34 +278,34 @@ def _parse_text(text: str) -> ParsedQueueData:
     return result
 
 
-def estimate_wait_from_spatial_marker(marker: str) -> Optional[int]:
+def estimate_wait_from_spatial_marker(marker: str, modifier_meters: Optional[int] = None) -> Optional[int]:
     """
-    Estimate wait time based on spatial marker.
+    Estimate wait time based on spatial marker and optional distance modifier.
     
-    This uses historical averages and will be refined over time
-    as we collect more data.
+    Uses historical averages. Queue typically moves at ~50-100 people per hour,
+    with ~2m spacing per person, so ~25-50m per hour = ~2 min per meter.
     
     Args:
         marker: The spatial marker name
+        modifier_meters: Additional meters past (+) or before (-) the marker
         
     Returns:
         Estimated wait time in minutes, or None if unknown
     """
-    # These are rough estimates based on typical queue movement
-    # ~50-100 people per hour, ~2m per person spacing
-    estimates = {
-        'Entrance': 5,
-        'Door': 10,
-        'Kiosk': 30,
-        'Späti': 45,
-        'Snack shop': 45,
-        'Corner': 60,
-        'Halfway': 75,
-        'Wriezener Straße': 90,
-        'Around the block': 120,
-        'Bridge': 150,
-    }
-    return estimates.get(marker)
+    base_distance = MARKER_DISTANCES.get(marker)
+    if base_distance is None:
+        return None
+    
+    # Apply modifier
+    total_distance = base_distance
+    if modifier_meters:
+        total_distance += modifier_meters
+    
+    # Convert distance to time: ~2.5 min per 10 meters (based on typical queue movement)
+    # This assumes ~4m/min queue movement = 240m/hour = ~80-120 people/hour
+    wait_minutes = round(total_distance * 0.25)  # 0.25 min per meter = 15 min per 60m
+    
+    return max(0, wait_minutes)
 
 
 def estimate_wait_from_queue_length(length: str) -> Optional[int]:
