@@ -3,11 +3,12 @@ Queue Parser Service
 
 Unified parsing logic for queue updates from all sources (Reddit, Telegram).
 All parsing happens here so we have consistent logic and easy maintenance.
+
+Supports context-aware parsing: combines parent message + reply for better accuracy.
 """
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Optional
 
 
@@ -20,20 +21,21 @@ class ParsedQueueData:
     rejection_mentioned: bool = False
     entry_mentioned: bool = False
     confidence: float = 0.5
+    used_context: bool = False  # True if parent context helped parsing
 
 
-# Known spatial markers around Berghain
+# Known spatial markers around Berghain (ordered by distance from entrance)
 SPATIAL_MARKERS = [
     ('wriezener', 'Wriezener Straße'),
-    ('kiosk', 'Kiosk'),
-    ('snack', 'Snack shop'),
-    ('späti', 'Späti'),
-    ('corner', 'Corner'),
     ('around the block', 'Around the block'),
     ('bridge', 'Bridge'),
+    ('halfway', 'Halfway'),
+    ('corner', 'Corner'),
+    ('späti', 'Späti'),
+    ('snack', 'Snack shop'),
+    ('kiosk', 'Kiosk'),
     ('entrance', 'Entrance'),
     ('door', 'Door'),
-    ('halfway', 'Halfway'),
 ]
 
 # Queue length patterns
@@ -62,13 +64,35 @@ WAIT_TIME_PATTERNS = [
     (r'[~≈]?\s*(\d+)\s*min(?:utes?)?(?:\s*wait)?', 'minutes'),
 ]
 
+# Patterns that indicate a question about the queue (used for context detection)
+QUEUE_QUESTION_PATTERNS = [
+    r'\b(how\s*(is|long|big)|what\'?s|status|update)\b.*(queue|line|q|schlange|wait)',
+    r'\b(queue|line|q|schlange|wait).*(how|what|\?)',
+    r'\bhow\s*is\s*(it|the|berghain)\b',
+    r'\bany\s*(update|news|info)\b',
+    r'\bcurrent\s*(status|situation|wait)\b',
+]
 
-def parse_queue_message(text: str) -> ParsedQueueData:
+
+def is_queue_question(text: str) -> bool:
+    """Check if text is asking about queue status."""
+    lower_text = text.lower()
+    for pattern in QUEUE_QUESTION_PATTERNS:
+        if re.search(pattern, lower_text, re.IGNORECASE):
+            return True
+    return '?' in text and any(w in lower_text for w in ['queue', 'line', 'wait', 'q', 'schlange', 'how', 'long'])
+
+
+def parse_queue_message(text: str, parent_text: Optional[str] = None) -> ParsedQueueData:
     """
     Parse a message (from Reddit or Telegram) for queue information.
     
+    Supports context-aware parsing: if the message itself yields low results
+    but there's a parent message asking about the queue, we combine them.
+    
     Args:
         text: The raw message text to parse
+        parent_text: Optional parent/replied-to message for context
         
     Returns:
         ParsedQueueData with extracted information
@@ -76,6 +100,50 @@ def parse_queue_message(text: str) -> ParsedQueueData:
     if not text:
         return ParsedQueueData()
     
+    # First, try parsing just the message itself
+    result = _parse_text(text)
+    
+    # If we got good results, return them
+    if result.confidence >= 0.5:
+        return result
+    
+    # If we have parent context and it's a queue question, try combining
+    if parent_text and is_queue_question(parent_text):
+        # The reply is likely an answer to the queue question
+        # Combine parent question + reply for context
+        combined_text = f"{parent_text} {text}"
+        combined_result = _parse_text(combined_text)
+        
+        # If combined parsing found more info, use it
+        if combined_result.confidence > result.confidence:
+            combined_result.used_context = True
+            # Boost confidence since context helped
+            combined_result.confidence = min(0.95, combined_result.confidence + 0.1)
+            return combined_result
+    
+    # Even without question context, short replies to any message might be answers
+    # e.g., "To the kiosk" as a standalone reply
+    if parent_text and len(text.split()) <= 5:
+        combined_text = f"{parent_text} Answer: {text}"
+        combined_result = _parse_text(combined_text)
+        
+        if combined_result.confidence > result.confidence:
+            combined_result.used_context = True
+            return combined_result
+    
+    return result
+
+
+def _parse_text(text: str) -> ParsedQueueData:
+    """
+    Internal function to parse text for queue information.
+    
+    Args:
+        text: The text to parse
+        
+    Returns:
+        ParsedQueueData with extracted information
+    """
     lower_text = text.lower()
     result = ParsedQueueData()
     confidence_factors = []
@@ -121,6 +189,8 @@ def parse_queue_message(text: str) -> ParsedQueueData:
     entry_patterns = [
         r'\b(got\s*in|made\s*it|inside|entered|admitted)\b',
         r'\b(we\'?re\s*in|i\'?m\s*in|finally\s*in)\b',
+        r'\byes\b.*\b(in|inside|made)\b',
+        r'\b(yes|yeah|yep|ja)\b',  # Short affirmatives (useful with context)
     ]
     for pattern in entry_patterns:
         if re.search(pattern, lower_text, re.IGNORECASE):

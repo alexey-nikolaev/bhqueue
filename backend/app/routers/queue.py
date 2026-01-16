@@ -32,10 +32,12 @@ class RawUpdateRequest(BaseModel):
     Raw update from external sources (Reddit, Telegram).
     
     The backend handles all parsing - sources just send raw text.
+    Supports context-aware parsing via parent_content field.
     """
     source: str  # 'reddit', 'telegram'
     source_id: str  # Original message/comment ID
     content: str  # Raw message text
+    parent_content: Optional[str] = None  # Parent/replied-to message for context
     author_name: Optional[str] = None
     source_timestamp: Optional[str] = None  # ISO format
 
@@ -134,8 +136,8 @@ async def _process_update(
             message="Update already recorded",
         )
     
-    # Parse the message using our unified parser
-    parsed = parse_queue_message(request.content)
+    # Parse the message using our unified parser (with optional context)
+    parsed = parse_queue_message(request.content, parent_text=request.parent_content)
     
     # Skip if nothing useful was parsed
     if parsed.confidence < 0.2:

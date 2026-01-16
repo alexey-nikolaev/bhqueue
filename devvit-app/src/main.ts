@@ -5,6 +5,7 @@
  * in r/Berghain_Community and sends raw messages to the KlubFlow backend.
  * 
  * All parsing is done on the backend for consistency with Telegram data.
+ * Supports context-aware parsing by including parent comment text.
  */
 
 import { Devvit, TriggerContext, ScheduledJobEvent } from '@devvit/public-api';
@@ -25,6 +26,7 @@ async function sendToBackend(data: {
   source: string;
   source_id: string;
   content: string;
+  parent_content?: string;  // Parent message for context
   author_name?: string;
   source_timestamp?: string;
 }) {
@@ -68,6 +70,28 @@ function isQueueUpdatePost(flairText: string, title: string): boolean {
 }
 
 /**
+ * Get parent comment text if this is a reply
+ */
+async function getParentCommentText(
+  context: TriggerContext,
+  comment: any
+): Promise<string | undefined> {
+  try {
+    // Check if this comment is a reply to another comment
+    if (comment.parentId && comment.parentId.startsWith('t1_')) {
+      // t1_ prefix indicates a comment (not a post which would be t3_)
+      const parentComment = await context.reddit.getCommentById(comment.parentId);
+      if (parentComment && parentComment.body) {
+        return parentComment.body;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching parent comment:', error);
+  }
+  return undefined;
+}
+
+/**
  * Trigger: When a new comment is posted
  */
 Devvit.addTrigger({
@@ -85,10 +109,18 @@ Devvit.addTrigger({
 
     console.log('Found comment in queue thread:', comment.id);
 
+    // Get parent comment for context (if this is a reply)
+    const parentContent = await getParentCommentText(context, comment);
+    
+    if (parentContent) {
+      console.log('Including parent context:', parentContent.substring(0, 50) + '...');
+    }
+
     await sendToBackend({
       source: 'reddit',
       source_id: `comment_${comment.id}`,
       content: comment.body,
+      parent_content: parentContent,
       author_name: comment.authorName,
       source_timestamp: new Date(comment.createdAt).toISOString(),
     });
@@ -118,6 +150,7 @@ Devvit.addTrigger({
       source: 'reddit',
       source_id: `post_${post.id}`,
       content: content,
+      // Posts don't have parent context
       author_name: post.authorName,
       source_timestamp: new Date(post.createdAt).toISOString(),
     });
@@ -150,10 +183,14 @@ Devvit.addSchedulerJob({
         const commentAge = Date.now() - comment.createdAt.getTime();
         if (commentAge > 15 * 60 * 1000) continue;
         
+        // Get parent context for replies
+        const parentContent = await getParentCommentText(context, comment);
+        
         const sent = await sendToBackend({
           source: 'reddit',
           source_id: `comment_${comment.id}`,
           content: comment.body,
+          parent_content: parentContent,
           author_name: comment.authorName,
           source_timestamp: new Date(comment.createdAt).toISOString(),
         });
