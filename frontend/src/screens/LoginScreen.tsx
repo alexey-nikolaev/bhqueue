@@ -97,7 +97,7 @@ export default function LoginScreen({ navigation }: Props) {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color={colors.textPrimary} />
+              <ActivityIndicator color={colors.buttonText} />
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
             )}
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...typography.button,
-    color: colors.textPrimary,
+    color: colors.buttonText,
   },
   footer: {
     flexDirection: 'row',

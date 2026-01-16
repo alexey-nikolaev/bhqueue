@@ -53,6 +53,11 @@ class Club(Base):
         back_populates="club",
         lazy="selectin",
     )
+    parsed_updates: Mapped[list["ParsedUpdate"]] = relationship(
+        "ParsedUpdate",
+        back_populates="club",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<Club {self.name}>"

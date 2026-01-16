@@ -14,7 +14,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, getQueueColor } from '../theme';
+import { colors, typography, spacing, borderRadius, getQueueColor, getFlowStatus } from '../theme';
 import { useQueueStore } from '../store/queueStore';
 import { useAuthStore } from '../store/authStore';
 
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     ...typography.button,
-    color: colors.textPrimary,
+    color: colors.buttonText,
   },
   lastUpdated: {
     ...typography.bodySmall,

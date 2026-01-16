@@ -2,12 +2,10 @@
 Telegram monitor service for reading queue updates from Berghain Berlin group.
 
 Uses Telethon to connect to Telegram and read messages from the public group.
-Parses messages to extract queue time estimates and spatial markers.
+Sends raw messages to the unified parser for processing.
 """
 
 import asyncio
-import re
-import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -16,133 +14,26 @@ from telethon.tl.types import Message
 
 from app.config import get_settings
 from app.utils.timezone import to_utc
+from app.services.queue_parser import parse_queue_message
 
 settings = get_settings()
 
 # Telegram group to monitor
 BERGHAIN_GROUP = "berghainberlin"
 
-# Patterns for extracting queue information
-TIME_PATTERNS = [
-    # "1:30h" or "1.30h" or "1:30 hours" (hours:minutes format) - check first!
-    (r'\b(\d+)[:\.](\d{2})\s*(?:h|hours?|hrs?)\b', 'hm'),
-    # "2 hours", "2h", "2 hr", "2hrs" (but not "1:30h" which is caught above)
-    (r'(?<![:\d])(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b', 60),
-    # "30 minutes", "30 min", "30m", "30 mins"  
-    (r'(\d+)\s*(?:minutes?|mins?|m)\b', 1),
-    # "no queue", "keine schlange", "empty", "no Q"
-    (r'\b(?:no queue|keine schlange|no line|empty|leer|niemand|no q|0 q)\b', 0),
-]
-
-# Spatial markers - common landmarks mentioned in queue descriptions
-# Based on real messages from the Telegram group
-SPATIAL_MARKERS = [
-    # Actual queue location markers
-    "wriezener", "wriezener strasse", "wriezener str",
-    "späti", "spati", "spätkauf",
-    "kiosk",
-    "snake",  # The snake/winding part of the queue
-    "parkplatz", "parking",
-    "zaun", "fence",
-    # Note: "door", "entrance", "gate" are NOT spatial markers
-    # - they're usually about door policy, not queue position
-]
-
-# Keywords that indicate queue-related messages
+# Keywords that indicate queue-related messages (for pre-filtering)
 QUEUE_KEYWORDS = [
     "queue", "schlange", "line", "waiting", "warten",
     "wait", "wartezeit", "hour", "stunde", "minute",
     "rein", "rejected", "abgelehnt", "inside", "drin",
+    "wriezener", "kiosk", "späti",
 ]
-
-
-def extract_wait_time(text: str) -> Optional[int]:
-    """
-    Extract estimated wait time in minutes from message text.
-    
-    Returns:
-        Estimated wait time in minutes, or None if not found
-    """
-    text_lower = text.lower()
-    
-    for pattern, multiplier in TIME_PATTERNS:
-        match = re.search(pattern, text_lower, re.IGNORECASE)
-        if match:
-            if multiplier == 0:
-                # "no queue" pattern
-                return 0
-            elif multiplier == 'hm':
-                # hours:minutes format
-                hours = int(match.group(1))
-                minutes = int(match.group(2))
-                return hours * 60 + minutes
-            else:
-                value = float(match.group(1))
-                return int(value * multiplier)
-    
-    return None
-
-
-def extract_spatial_marker(text: str) -> Optional[str]:
-    """
-    Extract spatial marker (landmark) from message text.
-    
-    Returns:
-        Spatial marker name, or None if not found
-    """
-    text_lower = text.lower()
-    
-    # Check for markers in order of specificity (longer matches first)
-    if "wriezener str" in text_lower or "wriezener strasse" in text_lower:
-        return "wriezener"
-    if "wriezener" in text_lower:
-        return "wriezener"
-    if any(m in text_lower for m in ["späti", "spati", "spätkauf"]):
-        return "späti"
-    if "kiosk" in text_lower:
-        return "kiosk"
-    if "snake" in text_lower:
-        return "snake"
-    if any(m in text_lower for m in ["parkplatz", "parking"]):
-        return "parking"
-    if any(m in text_lower for m in ["zaun", "fence"]):
-        return "fence"
-    
-    return None
 
 
 def is_queue_related(text: str) -> bool:
     """Check if a message is likely about queue status."""
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in QUEUE_KEYWORDS)
-
-
-def calculate_confidence(text: str, wait_time: Optional[int]) -> float:
-    """
-    Calculate confidence score for a parsed message.
-    
-    Higher confidence for:
-    - Explicit time mentions
-    - Multiple queue keywords
-    - Recent timestamps
-    """
-    confidence = 0.5  # Base confidence
-    
-    text_lower = text.lower()
-    
-    # Boost for explicit time
-    if wait_time is not None:
-        confidence += 0.2
-    
-    # Boost for multiple queue keywords
-    keyword_count = sum(1 for kw in QUEUE_KEYWORDS if kw in text_lower)
-    confidence += min(keyword_count * 0.05, 0.2)
-    
-    # Boost for spatial markers
-    if extract_spatial_marker(text):
-        confidence += 0.1
-    
-    return min(confidence, 1.0)
 
 
 class TelegramMonitor:
@@ -218,23 +109,26 @@ class TelegramMonitor:
             if message.date.replace(tzinfo=None) < since_time:
                 break
             
-            # Skip non-queue messages
+            # Pre-filter: skip messages that don't look queue-related
             if not is_queue_related(message.text):
                 continue
             
-            # Parse the message
-            wait_time = extract_wait_time(message.text)
-            spatial_marker = extract_spatial_marker(message.text)
-            confidence = calculate_confidence(message.text, wait_time)
+            # Use the unified parser
+            parsed = parse_queue_message(message.text)
+            
+            # Skip low-confidence parses
+            if parsed.confidence < 0.2:
+                continue
             
             parsed_messages.append({
                 "source": "telegram",
                 "source_id": str(message.id),
                 "raw_text": message.text,
-                "estimated_wait_minutes": wait_time,
-                "spatial_marker": spatial_marker,
-                "confidence": confidence,
-                "posted_at": to_utc(message.date),
+                "parsed_wait_minutes": parsed.wait_minutes,
+                "parsed_queue_length": parsed.queue_length,
+                "parsed_spatial_marker": parsed.spatial_marker,
+                "confidence": parsed.confidence,
+                "source_timestamp": to_utc(message.date),
             })
         
         return parsed_messages
@@ -257,21 +151,25 @@ class TelegramMonitor:
             if not message.text or not is_queue_related(message.text):
                 return
             
-            wait_time = extract_wait_time(message.text)
-            spatial_marker = extract_spatial_marker(message.text)
-            confidence = calculate_confidence(message.text, wait_time)
+            # Use the unified parser
+            parsed = parse_queue_message(message.text)
             
-            parsed = {
+            # Skip low-confidence parses
+            if parsed.confidence < 0.2:
+                return
+            
+            data = {
                 "source": "telegram",
                 "source_id": str(message.id),
                 "raw_text": message.text,
-                "estimated_wait_minutes": wait_time,
-                "spatial_marker": spatial_marker,
-                "confidence": confidence,
-                "posted_at": to_utc(message.date),
+                "parsed_wait_minutes": parsed.wait_minutes,
+                "parsed_queue_length": parsed.queue_length,
+                "parsed_spatial_marker": parsed.spatial_marker,
+                "confidence": parsed.confidence,
+                "source_timestamp": to_utc(message.date),
             }
             
-            await callback(parsed)
+            await callback(data)
         
         print(f"Listening for messages in {BERGHAIN_GROUP}...")
         await self.client.run_until_disconnected()
