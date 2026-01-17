@@ -21,7 +21,7 @@ from app.auth.dependencies import get_current_user, get_current_user_optional
 from app.database import get_db
 from app.models import Club, ParsedUpdate, User, QueueSession, PositionUpdate, Event, Queue, SpatialMarker
 from app.models.queue_session import QueueResult
-from app.services.event_service import get_current_klubnacht
+from app.services.event_service import get_current_klubnacht_times
 from app.services.queue_parser import (
     parse_queue_message,
     estimate_wait_from_spatial_marker,
@@ -155,28 +155,26 @@ async def join_queue(
             detail="You already have an active queue session. Leave or report result first.",
         )
     
-    # Get or create current event
-    current_event = get_current_klubnacht()
-    
-    # For now, create a placeholder event if none exists
+    # For now, get or create a placeholder event
     # In production, this should be handled better
     result = await db.execute(
         select(Event)
         .where(Event.club_id == club.id)
-        .order_by(Event.start_time.desc())
+        .order_by(Event.starts_at.desc())
         .limit(1)
     )
     event = result.scalar_one_or_none()
     
     if not event:
         # Create a temporary event
-        from app.models import Event
+        now = datetime.utcnow()
         event = Event(
             id=uuid.uuid4(),
             club_id=club.id,
             name="Klubnacht",
-            start_time=datetime.utcnow(),
-            end_time=datetime.utcnow() + timedelta(hours=24),
+            queue_opens_at=now,
+            starts_at=now,
+            ends_at=now + timedelta(hours=24),
         )
         db.add(event)
         await db.flush()

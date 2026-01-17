@@ -193,6 +193,12 @@ def is_klubnacht_active() -> bool:
     return is_active
 
 
+# ============================================================================
+# TESTING MODE - Set to True to force club to appear open
+# ============================================================================
+TESTING_MODE = False
+
+
 def get_club_status() -> dict:
     """
     Get the current status of the club.
@@ -201,6 +207,10 @@ def get_club_status() -> dict:
         Dict with status info for the frontend
     """
     saturday, is_active = get_current_or_next_klubnacht_saturday()
+    
+    # Testing mode: force club to appear open
+    if TESTING_MODE:
+        is_active = True
     
     if is_active:
         queue_opens, starts_at, ends_at = get_klubnacht_times_for_date(saturday)

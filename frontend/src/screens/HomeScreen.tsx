@@ -2,7 +2,7 @@
  * Home Screen - Main dashboard showing queue status
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,27 +12,101 @@ import {
   ScrollView,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import { colors, typography, spacing, borderRadius, getQueueColor, getFlowStatus } from '../theme';
 import { useQueueStore } from '../store/queueStore';
 import { useAuthStore } from '../store/authStore';
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
-  const { clubStatus, isLoading, error, lastUpdated, fetchStatus } = useQueueStore();
+  const navigation = useNavigation<any>();
+  const { 
+    clubStatus, 
+    queueStatus,
+    session,
+    isLoading, 
+    isJoining,
+    error, 
+    lastUpdated, 
+    fetchStatus,
+    fetchSession,
+    joinQueue,
+  } = useQueueStore();
   const { user, isAuthenticated } = useAuthStore();
+  const [locationStatus, setLocationStatus] = useState<string>('checking');
 
   const handleBack = () => {
     navigation.getParent()?.goBack();
   };
 
+  // Check for existing session on mount
   useEffect(() => {
     fetchStatus();
+    fetchSession();
+    
+    // Check location permission
+    (async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setLocationStatus(status);
+    })();
+    
     // Refresh every 2 minutes
     const interval = setInterval(fetchStatus, 120000);
     return () => clearInterval(interval);
   }, []);
+
+  // Handle join queue button press
+  const handleJoinQueue = async () => {
+    // Request location permission if not granted
+    if (locationStatus !== 'granted') {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationStatus(status);
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Required',
+          'GPS helps track your queue position. You can still join without it.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Join Anyway', 
+              onPress: () => doJoinQueue() 
+            },
+          ]
+        );
+        return;
+      }
+    }
+    
+    await doJoinQueue();
+  };
+
+  const doJoinQueue = async () => {
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+    
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      latitude = location.coords.latitude;
+      longitude = location.coords.longitude;
+    } catch (e) {
+      console.log('Could not get location:', e);
+    }
+    
+    const success = await joinQueue('main', latitude, longitude);
+    if (success) {
+      navigation.navigate('Queue');
+    }
+  };
+
+  // Navigate to queue screen if already in queue
+  const handleContinueQueue = () => {
+    navigation.navigate('Queue');
+  };
 
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);
@@ -118,26 +192,69 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Queue Estimate Card (placeholder for now) */}
+      {/* Queue Estimate Card */}
       {clubStatus?.is_open && (
         <View style={styles.queueCard}>
           <Text style={styles.queueLabel}>Estimated Wait</Text>
           <View style={styles.queueTimeContainer}>
-            <Text style={[styles.queueTime, { color: getQueueColor(90) }]}>--</Text>
-            <Text style={styles.queueUnit}>min</Text>
+            {queueStatus?.estimated_wait_minutes ? (
+              <>
+                <Text style={[styles.queueTime, { color: getQueueColor(queueStatus.estimated_wait_minutes) }]}>
+                  {queueStatus.estimated_wait_minutes}
+                </Text>
+                <Text style={styles.queueUnit}>min</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.queueTime, { color: colors.textMuted }]}>--</Text>
+                <Text style={styles.queueUnit}>min</Text>
+              </>
+            )}
           </View>
-          <Text style={styles.queueConfidence}>No data yet</Text>
-          <Text style={styles.queueHint}>
-            Be the first to report the queue!
-          </Text>
+          {queueStatus?.confidence && queueStatus.estimated_wait_minutes ? (
+            <Text style={styles.queueConfidence}>
+              {queueStatus.confidence} confidence • {queueStatus.data_points} reports
+            </Text>
+          ) : (
+            <Text style={styles.queueConfidence}>No data yet</Text>
+          )}
+          {queueStatus?.spatial_marker && (
+            <Text style={styles.queueHint}>
+              Queue extends to: {queueStatus.spatial_marker}
+            </Text>
+          )}
+          {!queueStatus?.estimated_wait_minutes && (
+            <Text style={styles.queueHint}>
+              Be the first to report the queue!
+            </Text>
+          )}
         </View>
       )}
 
       {/* Action Button */}
       {clubStatus?.is_open && (
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>I'm in the queue</Text>
-        </TouchableOpacity>
+        session ? (
+          // Already in queue - show continue button
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={handleContinueQueue}
+          >
+            <Text style={styles.actionButtonText}>Continue session →</Text>
+          </TouchableOpacity>
+        ) : (
+          // Not in queue - show join button
+          <TouchableOpacity 
+            style={[styles.actionButton, isJoining && styles.actionButtonDisabled]}
+            onPress={handleJoinQueue}
+            disabled={isJoining}
+          >
+            {isJoining ? (
+              <ActivityIndicator color={colors.buttonText} />
+            ) : (
+              <Text style={styles.actionButtonText}>I'm in the queue</Text>
+            )}
+          </TouchableOpacity>
+        )
       )}
 
       {/* Last Updated */}
@@ -297,6 +414,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   actionButtonText: {
     ...typography.button,

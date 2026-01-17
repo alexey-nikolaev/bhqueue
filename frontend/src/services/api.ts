@@ -87,6 +87,47 @@ export interface ClubStatus {
   };
 }
 
+export interface SpatialMarker {
+  id: string;
+  queue_id: string | null;
+  name: string;
+  aliases: string[] | null;
+  latitude: number;
+  longitude: number;
+  distance_from_door_meters: number;
+  typical_wait_minutes: number | null;
+  display_order: number;
+}
+
+export interface QueueType {
+  id: string;
+  queue_type: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+}
+
+export interface QueueSession {
+  id: string;
+  queue_type: string;
+  joined_at: string;
+  result: string | null;
+  result_at: string | null;
+  wait_duration_minutes: number | null;
+  position_count: number;
+  last_marker: string | null;
+}
+
+export interface QueueStatusResponse {
+  estimated_wait_minutes: number | null;
+  confidence: 'low' | 'medium' | 'high';
+  data_points: number;
+  last_update: string | null;
+  spatial_marker: string | null;
+  queue_length: string | null;
+  sources: Record<string, number>;
+}
+
 export interface ApiError {
   detail: string;
 }
@@ -145,6 +186,86 @@ export async function getCurrentUser(): Promise<User> {
 // Club API
 export async function getBerghainStatus(): Promise<ClubStatus> {
   const response = await api.get<ClubStatus>(API_ENDPOINTS.berghainStatus);
+  return response.data;
+}
+
+export async function getClubMarkers(slug: string = 'berghain'): Promise<SpatialMarker[]> {
+  const response = await api.get<SpatialMarker[]>(API_ENDPOINTS.clubMarkers(slug));
+  return response.data;
+}
+
+export async function getClubQueues(slug: string = 'berghain'): Promise<QueueType[]> {
+  const response = await api.get<QueueType[]>(API_ENDPOINTS.clubQueues(slug));
+  return response.data;
+}
+
+// Queue API - User Session
+export async function joinQueue(
+  clubSlug: string = 'berghain',
+  queueType: string = 'main',
+  latitude?: number,
+  longitude?: number
+): Promise<QueueSession> {
+  const response = await api.post<QueueSession>(API_ENDPOINTS.queueJoin, {
+    club_slug: clubSlug,
+    queue_type: queueType,
+    latitude,
+    longitude,
+  });
+  return response.data;
+}
+
+export async function getQueueSession(): Promise<QueueSession | null> {
+  try {
+    const response = await api.get<QueueSession | null>(API_ENDPOINTS.queueSession);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function submitPosition(
+  latitude: number,
+  longitude: number,
+  accuracyMeters?: number
+): Promise<void> {
+  await api.post(API_ENDPOINTS.queuePosition, {
+    latitude,
+    longitude,
+    accuracy_meters: accuracyMeters,
+    recorded_at: new Date().toISOString(),
+  });
+}
+
+export async function submitCheckpoint(markerId: string): Promise<{
+  success: boolean;
+  message: string;
+  estimated_wait_minutes: number | null;
+}> {
+  const response = await api.post(API_ENDPOINTS.queueCheckpoint, {
+    marker_id: markerId,
+  });
+  return response.data;
+}
+
+export async function submitResult(result: 'admitted' | 'rejected'): Promise<QueueSession> {
+  const response = await api.post<QueueSession>(API_ENDPOINTS.queueResult, {
+    result,
+  });
+  return response.data;
+}
+
+export async function leaveQueue(): Promise<void> {
+  await api.post(API_ENDPOINTS.queueLeave);
+}
+
+export async function getQueueStatus(clubSlug: string = 'berghain'): Promise<QueueStatusResponse> {
+  const response = await api.get<QueueStatusResponse>(API_ENDPOINTS.queueStatus, {
+    params: { club_slug: clubSlug },
+  });
   return response.data;
 }
 

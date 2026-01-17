@@ -16,6 +16,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ClubSelectScreen from '../screens/ClubSelectScreen';
+import QueueScreen from '../screens/QueueScreen';
 
 // Stack navigators
 const AuthStack = createNativeStackNavigator();
@@ -91,6 +92,14 @@ function MainNavigator() {
     >
       <MainStack.Screen name="ClubSelect" component={ClubSelectScreen} />
       <MainStack.Screen name="ClubDetail" component={ClubTabs} />
+      <MainStack.Screen 
+        name="Queue" 
+        component={QueueScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
     </MainStack.Navigator>
   );
 }

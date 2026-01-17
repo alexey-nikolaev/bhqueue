@@ -16,7 +16,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.klubflow.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "KlubFlow needs your location to track your position in the queue and estimate wait times."
+        "NSLocationWhenInUseUsageDescription": "KlubFlow needs your location to track your position in the queue and estimate wait times.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
