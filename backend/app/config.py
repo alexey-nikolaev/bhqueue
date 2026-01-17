@@ -35,12 +35,8 @@ class Settings(BaseSettings):
     # Admin API
     admin_api_key: Optional[str] = None  # Set this for automated admin access
 
-    # Reddit API
-    reddit_client_id: Optional[str] = None
-    reddit_client_secret: Optional[str] = None
-    reddit_username: Optional[str] = None
-    reddit_password: Optional[str] = None
-    reddit_user_agent: str = "BHQueue/0.1.0"
+    # Reddit (Devvit handles this - no API credentials needed)
+    # The Devvit app pushes data to our /api/queue/reddit-update endpoint
 
     # Telegram API
     telegram_api_id: Optional[str] = None  # Stored as string, converted when needed

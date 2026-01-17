@@ -25,10 +25,7 @@ python-multipart==0.0.9
 httpx==0.26.0
 authlib==1.3.0
 
-# Reddit API
-praw==7.7.1
-
-# Telegram API
+# Telegram API (for monitoring @berghainberlin group)
 telethon==1.34.0
 
 # Utilities

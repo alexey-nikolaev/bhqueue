@@ -1,11 +1,11 @@
 """
 Admin API endpoints for managing application data.
 
-These endpoints allow updating spatial markers and queues without redeploying.
-
-**Authentication required:**
+All endpoints require admin authentication:
 - Authenticated user with `is_admin=True`, OR
 - Valid `X-Admin-API-Key` header
+
+For public read access to queues/markers, use `/api/clubs/{slug}/queues` and `/api/clubs/{slug}/markers`.
 """
 
 import uuid
@@ -25,23 +25,19 @@ from app.services.queue_parser import refresh_marker_cache
 router = APIRouter()
 
 
-# ============================================================================
+# =============================================================================
 # Schemas
-# ============================================================================
+# =============================================================================
 
 # --- Queue Schemas ---
 
-class QueueBase(BaseModel):
-    """Base schema for queue data."""
-    queue_type: str
+class QueueCreate(BaseModel):
+    """Schema for creating a new queue."""
+    club_id: uuid.UUID
+    queue_type: str  # main, guestlist, reentry
     name: str
     description: Optional[str] = None
     display_order: int = 0
-
-
-class QueueCreate(QueueBase):
-    """Schema for creating a new queue."""
-    club_id: uuid.UUID
 
 
 class QueueUpdate(BaseModel):
@@ -51,24 +47,25 @@ class QueueUpdate(BaseModel):
     display_order: Optional[int] = None
 
 
-class QueueResponse(QueueBase):
+class QueueResponse(BaseModel):
     """Schema for queue response."""
     id: uuid.UUID
     club_id: uuid.UUID
+    queue_type: str
+    name: str
+    description: Optional[str] = None
+    display_order: int
 
     class Config:
         from_attributes = True
 
 
-class QueueWithMarkersResponse(QueueResponse):
-    """Schema for queue response with markers included."""
-    markers_count: int = 0
-
-
 # --- Spatial Marker Schemas ---
 
-class SpatialMarkerBase(BaseModel):
-    """Base schema for spatial marker data."""
+class SpatialMarkerCreate(BaseModel):
+    """Schema for creating a new spatial marker."""
+    club_id: uuid.UUID
+    queue_id: Optional[uuid.UUID] = None
     name: str
     aliases: Optional[list[str]] = None
     latitude: float
@@ -76,12 +73,6 @@ class SpatialMarkerBase(BaseModel):
     distance_from_door_meters: int
     typical_wait_minutes: Optional[int] = None
     display_order: int = 0
-
-
-class SpatialMarkerCreate(SpatialMarkerBase):
-    """Schema for creating a new spatial marker."""
-    club_id: uuid.UUID
-    queue_id: Optional[uuid.UUID] = None
 
 
 class SpatialMarkerUpdate(BaseModel):
@@ -96,89 +87,26 @@ class SpatialMarkerUpdate(BaseModel):
     queue_id: Optional[uuid.UUID] = None
 
 
-class QueueInfo(BaseModel):
-    """Minimal queue info for embedding in marker response."""
-    id: uuid.UUID
-    queue_type: str
-    name: str
-
-    class Config:
-        from_attributes = True
-
-
-class SpatialMarkerResponse(SpatialMarkerBase):
+class SpatialMarkerResponse(BaseModel):
     """Schema for spatial marker response."""
     id: uuid.UUID
     club_id: uuid.UUID
     queue_id: Optional[uuid.UUID] = None
-    queue: Optional[QueueInfo] = None
+    name: str
+    aliases: Optional[list[str]] = None
+    latitude: float
+    longitude: float
+    distance_from_door_meters: int
+    typical_wait_minutes: Optional[int] = None
+    display_order: int
 
     class Config:
         from_attributes = True
 
 
-# ============================================================================
-# Queue Endpoints
-# ============================================================================
-
-@router.get("/queues", response_model=list[QueueWithMarkersResponse])
-async def list_queues(
-    club_slug: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    _admin: Optional[User] = Depends(verify_admin_access),
-):
-    """
-    List all queues, optionally filtered by club.
-    
-    - **club_slug**: Filter by club (e.g., "berghain")
-    """
-    query = select(Queue).options(selectinload(Queue.spatial_markers))
-    
-    if club_slug:
-        query = query.join(Club).where(Club.slug == club_slug)
-    
-    query = query.order_by(Queue.display_order)
-    
-    result = await db.execute(query)
-    queues = result.scalars().all()
-    
-    # Add markers_count
-    response = []
-    for q in queues:
-        queue_dict = {
-            "id": q.id,
-            "club_id": q.club_id,
-            "queue_type": q.queue_type,
-            "name": q.name,
-            "description": q.description,
-            "display_order": q.display_order,
-            "markers_count": len(q.spatial_markers) if q.spatial_markers else 0,
-        }
-        response.append(queue_dict)
-    
-    return response
-
-
-@router.get("/queues/{queue_id}", response_model=QueueResponse)
-async def get_queue(
-    queue_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    _admin: Optional[User] = Depends(verify_admin_access),
-):
-    """Get a specific queue by ID."""
-    result = await db.execute(
-        select(Queue).where(Queue.id == queue_id)
-    )
-    queue = result.scalar_one_or_none()
-    
-    if not queue:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Queue not found",
-        )
-    
-    return queue
-
+# =============================================================================
+# Queue Admin Endpoints
+# =============================================================================
 
 @router.post("/queues", response_model=QueueResponse, status_code=status.HTTP_201_CREATED)
 async def create_queue(
@@ -279,64 +207,9 @@ async def delete_queue(
     await db.commit()
 
 
-# ============================================================================
-# Spatial Marker Endpoints
-# ============================================================================
-
-@router.get("/markers", response_model=list[SpatialMarkerResponse])
-async def list_spatial_markers(
-    club_slug: Optional[str] = None,
-    queue_id: Optional[uuid.UUID] = None,
-    queue_type: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    _admin: Optional[User] = Depends(verify_admin_access),
-):
-    """
-    List all spatial markers with optional filters.
-    
-    - **club_slug**: Filter by club (e.g., "berghain")
-    - **queue_id**: Filter by specific queue UUID
-    - **queue_type**: Filter by queue type ("main", "guestlist", "reentry")
-    """
-    query = select(SpatialMarker).options(selectinload(SpatialMarker.queue))
-    
-    if club_slug:
-        query = query.join(Club, SpatialMarker.club_id == Club.id).where(Club.slug == club_slug)
-    
-    if queue_id:
-        query = query.where(SpatialMarker.queue_id == queue_id)
-    elif queue_type:
-        query = query.join(Queue, SpatialMarker.queue_id == Queue.id).where(Queue.queue_type == queue_type)
-    
-    query = query.order_by(SpatialMarker.display_order)
-    
-    result = await db.execute(query)
-    markers = result.scalars().all()
-    return markers
-
-
-@router.get("/markers/{marker_id}", response_model=SpatialMarkerResponse)
-async def get_spatial_marker(
-    marker_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    _admin: Optional[User] = Depends(verify_admin_access),
-):
-    """Get a specific spatial marker by ID."""
-    result = await db.execute(
-        select(SpatialMarker)
-        .options(selectinload(SpatialMarker.queue))
-        .where(SpatialMarker.id == marker_id)
-    )
-    marker = result.scalar_one_or_none()
-    
-    if not marker:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Spatial marker not found",
-        )
-    
-    return marker
-
+# =============================================================================
+# Spatial Marker Admin Endpoints
+# =============================================================================
 
 @router.post("/markers", response_model=SpatialMarkerResponse, status_code=status.HTTP_201_CREATED)
 async def create_spatial_marker(
@@ -384,15 +257,6 @@ async def create_spatial_marker(
     db.add(marker)
     await db.commit()
     await db.refresh(marker)
-    
-    # Load queue relationship for response
-    if marker.queue_id:
-        result = await db.execute(
-            select(SpatialMarker)
-            .options(selectinload(SpatialMarker.queue))
-            .where(SpatialMarker.id == marker.id)
-        )
-        marker = result.scalar_one()
     
     # Refresh parser cache
     refresh_marker_cache()
@@ -445,14 +309,7 @@ async def update_spatial_marker(
         setattr(marker, field, value)
     
     await db.commit()
-    
-    # Reload with queue relationship
-    result = await db.execute(
-        select(SpatialMarker)
-        .options(selectinload(SpatialMarker.queue))
-        .where(SpatialMarker.id == marker_id)
-    )
-    marker = result.scalar_one()
+    await db.refresh(marker)
     
     # Refresh parser cache
     refresh_marker_cache()
