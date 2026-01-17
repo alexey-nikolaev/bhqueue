@@ -18,6 +18,7 @@ from app.models import (
     Club,
     Event,
     User,
+    Queue,
     QueueSession,
     PositionUpdate,
     ParsedUpdate,

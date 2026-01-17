@@ -50,6 +50,7 @@ class User(Base):
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)  # Email verified
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)  # Admin privileges
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

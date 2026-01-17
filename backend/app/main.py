@@ -73,8 +73,9 @@ async def health_check():
 
 
 # Routers
-from app.routers import auth, clubs, queue
+from app.routers import auth, clubs, queue, admin
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(clubs.router, prefix="/api/clubs", tags=["Clubs"])
 app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

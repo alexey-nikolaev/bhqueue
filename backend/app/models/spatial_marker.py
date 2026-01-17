@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
@@ -19,6 +20,7 @@ class SpatialMarker(Base):
     - "Reaching the Späti"
     - "Past the bridge"
     
+    Each marker belongs to a specific queue (main, GL, re-entry).
     We map these to GPS coordinates and historical wait times.
     """
     
@@ -29,10 +31,17 @@ class SpatialMarker(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+    
+    # Foreign keys
     club_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("clubs.id"),
         nullable=False,
+    )
+    queue_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("queues.id"),
+        nullable=True,  # Nullable for migration, can be required later
     )
     
     # Name and aliases (for text matching)
@@ -58,6 +67,7 @@ class SpatialMarker(Base):
 
     # Relationships
     club: Mapped["Club"] = relationship("Club", back_populates="spatial_markers")
+    queue: Mapped[Optional["Queue"]] = relationship("Queue", back_populates="spatial_markers")
 
     def __repr__(self) -> str:
         return f"<SpatialMarker {self.name} ({self.distance_from_door_meters}m)>"

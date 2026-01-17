@@ -2,6 +2,7 @@
 from app.models.club import Club
 from app.models.event import Event
 from app.models.user import User
+from app.models.queue import Queue, QueueType
 from app.models.queue_session import QueueSession
 from app.models.position_update import PositionUpdate
 from app.models.parsed_update import ParsedUpdate
@@ -12,6 +13,8 @@ __all__ = [
     "Club",
     "Event",
     "User",
+    "Queue",
+    "QueueType",
     "QueueSession",
     "PositionUpdate",
     "ParsedUpdate",

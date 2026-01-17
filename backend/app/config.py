@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    
+    # Admin API
+    admin_api_key: Optional[str] = None  # Set this for automated admin access
 
     # Reddit API
     reddit_client_id: Optional[str] = None

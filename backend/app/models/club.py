@@ -48,6 +48,11 @@ class Club(Base):
         back_populates="club",
         lazy="selectin",
     )
+    queues: Mapped[list["Queue"]] = relationship(
+        "Queue",
+        back_populates="club",
+        lazy="selectin",
+    )
     spatial_markers: Mapped[list["SpatialMarker"]] = relationship(
         "SpatialMarker",
         back_populates="club",

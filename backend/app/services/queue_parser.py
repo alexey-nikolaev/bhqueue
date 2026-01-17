@@ -5,11 +5,152 @@ Unified parsing logic for queue updates from all sources (Reddit, Telegram).
 All parsing happens here so we have consistent logic and easy maintenance.
 
 Supports context-aware parsing: combines parent message + reply for better accuracy.
+
+Spatial markers are loaded from the database with caching for performance.
 """
 
 import re
-from dataclasses import dataclass
-from typing import Optional, Tuple
+import time
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List, Dict
+
+# Cache for spatial markers (to avoid DB calls on every parse)
+_marker_cache: Dict[str, any] = {
+    "data": None,  # List of (alias, name, wait_minutes) tuples
+    "wait_estimates": None,  # Dict of name -> wait_minutes
+    "last_refresh": 0,
+    "ttl_seconds": 300,  # Refresh every 5 minutes
+}
+
+# Fallback markers (used if DB is unavailable)
+# These match the seeded data in scripts/seed_data.py
+_FALLBACK_SPATIAL_MARKERS = [
+    # Main queue (longest matches first)
+    ('metro sign', 'Metro sign', 180),
+    ('metro', 'Metro sign', 180),
+    ('wriezener karree', 'Wriezener Karree', 150),
+    ('am wriezener', 'Wriezener Straße', 140),
+    ('wriezener', 'Wriezener Straße', 140),
+    ('around the block', 'Around the block', 120),
+    ('bridge', 'Bridge', 100),
+    ('späti', 'Späti', 90),
+    ('spati', 'Späti', 90),
+    ('behind kiosk', 'Past Kiosk', 70),
+    ('past kiosk', 'Past Kiosk', 70),
+    ('kiosk', 'Kiosk', 55),
+    ('magic cube', 'Magic Cube', 40),
+    ('cube', 'Magic Cube', 40),
+    ('concrete block', 'Concrete blocks', 25),
+    ('concrete', 'Concrete blocks', 25),
+    ('snake', 'Snake', 15),
+    ('entrance', 'Door', 0),
+    ('door', 'Door', 0),
+    # GL queue
+    ('park', 'Park (GL)', 45),
+    ('atm', 'ATM (GL)', 35),
+    ('garten door', 'Garten door (GL)', 25),
+    ('garten', 'Garten door (GL)', 25),
+    ('love sculpture', 'Love sculpture (GL)', 15),
+    ('love', 'Love sculpture (GL)', 15),
+    ('barrier', 'Barriers (GL)', 5),
+]
+
+
+def _load_markers_from_db() -> Tuple[List[Tuple[str, str, int]], Dict[str, int]]:
+    """
+    Load spatial markers from database synchronously.
+    Returns (markers_list, wait_estimates_dict).
+    
+    Uses synchronous DB access for simplicity since this is called from
+    sync parsing functions. Consider async version if performance is critical.
+    """
+    try:
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+        from app.config import get_settings
+        from app.models.spatial_marker import SpatialMarker
+        
+        settings = get_settings()
+        db_url = settings.database_url
+        if db_url.startswith("postgresql+asyncpg://"):
+            db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+        
+        engine = create_engine(db_url)
+        
+        markers_list = []
+        wait_estimates = {}
+        
+        with Session(engine) as session:
+            # Fetch all markers ordered by display_order
+            result = session.execute(
+                select(SpatialMarker).order_by(SpatialMarker.display_order)
+            )
+            db_markers = result.scalars().all()
+            
+            for marker in db_markers:
+                wait = marker.typical_wait_minutes or 0
+                wait_estimates[marker.name] = wait
+                
+                # Add primary name
+                markers_list.append((marker.name.lower(), marker.name, wait))
+                
+                # Add aliases
+                if marker.aliases:
+                    for alias in marker.aliases:
+                        markers_list.append((alias.lower(), marker.name, wait))
+        
+        engine.dispose()
+        
+        # Sort by alias length descending (longer matches first)
+        markers_list.sort(key=lambda x: len(x[0]), reverse=True)
+        
+        return markers_list, wait_estimates
+        
+    except Exception as e:
+        print(f"Warning: Could not load markers from DB, using fallback: {e}")
+        return None, None
+
+
+def get_spatial_markers() -> List[Tuple[str, str, int]]:
+    """
+    Get spatial markers, loading from DB with caching.
+    Returns list of (alias, display_name, wait_minutes) tuples.
+    """
+    now = time.time()
+    
+    # Check if cache is valid
+    if (_marker_cache["data"] is not None and 
+        now - _marker_cache["last_refresh"] < _marker_cache["ttl_seconds"]):
+        return _marker_cache["data"]
+    
+    # Try loading from DB
+    markers, estimates = _load_markers_from_db()
+    
+    if markers:
+        _marker_cache["data"] = markers
+        _marker_cache["wait_estimates"] = estimates
+        _marker_cache["last_refresh"] = now
+        return markers
+    
+    # Use fallback if DB load failed
+    if _marker_cache["data"] is None:
+        _marker_cache["data"] = _FALLBACK_SPATIAL_MARKERS
+        _marker_cache["wait_estimates"] = {name: wait for _, name, wait in _FALLBACK_SPATIAL_MARKERS}
+    
+    return _marker_cache["data"]
+
+
+def get_marker_wait_estimates() -> Dict[str, int]:
+    """Get dict mapping marker names to estimated wait times."""
+    # Ensure cache is populated
+    get_spatial_markers()
+    return _marker_cache["wait_estimates"] or {}
+
+
+def refresh_marker_cache() -> None:
+    """Force refresh of marker cache from database."""
+    _marker_cache["last_refresh"] = 0
+    get_spatial_markers()
 
 
 @dataclass
@@ -23,26 +164,6 @@ class ParsedQueueData:
     entry_mentioned: bool = False
     confidence: float = 0.5
     used_context: bool = False  # True if parent context helped parsing
-
-
-# Known spatial markers around Berghain (ordered by distance from entrance)
-# Format: (keyword, display_name, base_distance_meters)
-SPATIAL_MARKERS = [
-    ('wriezener', 'Wriezener Straße', 400),
-    ('around the block', 'Around the block', 350),
-    ('bridge', 'Bridge', 300),
-    ('halfway', 'Halfway', 200),
-    ('corner', 'Corner', 150),
-    ('späti', 'Späti', 120),
-    ('spati', 'Späti', 120),  # Without umlaut
-    ('snack', 'Snack shop', 100),
-    ('kiosk', 'Kiosk', 80),
-    ('entrance', 'Entrance', 10),
-    ('door', 'Door', 5),
-]
-
-# Build lookup dict for marker distances
-MARKER_DISTANCES = {name: dist for _, name, dist in SPATIAL_MARKERS}
 
 # Queue length patterns
 QUEUE_LENGTH_PATTERNS = [
@@ -104,8 +225,9 @@ def _parse_spatial_marker_with_modifier(text: str) -> Tuple[Optional[str], Optio
         modifier is positive for "past", negative for "before"
     """
     lower_text = text.lower()
+    spatial_markers = get_spatial_markers()
     
-    for marker_key, marker_name, _ in SPATIAL_MARKERS:
+    for marker_key, marker_name, _ in spatial_markers:
         if marker_key not in lower_text:
             continue
         
@@ -282,8 +404,9 @@ def estimate_wait_from_spatial_marker(marker: str, modifier_meters: Optional[int
     """
     Estimate wait time based on spatial marker and optional distance modifier.
     
-    Uses historical averages. Queue typically moves at ~50-100 people per hour,
-    with ~2m spacing per person, so ~25-50m per hour = ~2 min per meter.
+    The marker already has an estimated wait time associated with it.
+    Modifiers (e.g., "+10m" meaning 10 meters past) are converted to additional
+    wait time using rough estimate: ~10 meters ≈ 3 minutes additional wait.
     
     Args:
         marker: The spatial marker name
@@ -292,20 +415,19 @@ def estimate_wait_from_spatial_marker(marker: str, modifier_meters: Optional[int
     Returns:
         Estimated wait time in minutes, or None if unknown
     """
-    base_distance = MARKER_DISTANCES.get(marker)
-    if base_distance is None:
+    wait_estimates = get_marker_wait_estimates()
+    base_wait = wait_estimates.get(marker)
+    if base_wait is None:
         return None
     
-    # Apply modifier
-    total_distance = base_distance
+    # Apply modifier: ~10 meters ≈ 3 minutes (rough conversion)
+    # Queue spacing ~2m/person, movement ~20 people/hour = ~40m/hour = ~1.5 min/10m
+    # Being conservative, use 3 min per 10m
     if modifier_meters:
-        total_distance += modifier_meters
+        additional_minutes = round(modifier_meters * 0.3)  # 0.3 min per meter
+        base_wait += additional_minutes
     
-    # Convert distance to time: ~2.5 min per 10 meters (based on typical queue movement)
-    # This assumes ~4m/min queue movement = 240m/hour = ~80-120 people/hour
-    wait_minutes = round(total_distance * 0.25)  # 0.25 min per meter = 15 min per 60m
-    
-    return max(0, wait_minutes)
+    return max(0, base_wait)
 
 
 def estimate_wait_from_queue_length(length: str) -> Optional[int]:
