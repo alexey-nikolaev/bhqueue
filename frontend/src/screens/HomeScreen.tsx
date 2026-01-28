@@ -57,9 +57,31 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Handle join queue button press
-  const handleJoinQueue = async () => {
-    // Request location permission if not granted
+  // Handle join queue button press - show queue type selection
+  const handleJoinQueue = () => {
+    Alert.alert(
+      'Select Queue Type',
+      'Which queue are you joining?',
+      [
+        {
+          text: 'Main Queue',
+          onPress: () => checkLocationAndJoin('main'),
+        },
+        {
+          text: 'Guestlist',
+          onPress: () => checkLocationAndJoin('guest_list'),
+        },
+        {
+          text: 'Re-entry',
+          onPress: () => checkLocationAndJoin('reentry'),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Check location permission and join queue
+  const checkLocationAndJoin = async (queueType: 'main' | 'guest_list' | 'reentry') => {
     if (locationStatus !== 'granted') {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationStatus(status);
@@ -72,7 +94,7 @@ export default function HomeScreen() {
             { text: 'Cancel', style: 'cancel' },
             { 
               text: 'Join Anyway', 
-              onPress: () => doJoinQueue() 
+              onPress: () => doJoinQueue(queueType) 
             },
           ]
         );
@@ -80,10 +102,10 @@ export default function HomeScreen() {
       }
     }
     
-    await doJoinQueue();
+    await doJoinQueue(queueType);
   };
 
-  const doJoinQueue = async () => {
+  const doJoinQueue = async (queueType: 'main' | 'guest_list' | 'reentry') => {
     // Fetch markers first so we can pre-select after join
     await useQueueStore.getState().fetchMarkers();
     
@@ -91,14 +113,21 @@ export default function HomeScreen() {
     let longitude: number | undefined;
     
     // ==========================================================================
-    // TESTING: Use coordinates near Metro sign for testing
-    // Comment out this block and uncomment the real GPS block for production
+    // TESTING: Use coordinates near a landmark for testing
+    // Set TESTING_MODE to false for production
     // ==========================================================================
     const TESTING_MODE = true;
+    
     if (TESTING_MODE) {
-      // Coordinates slightly offset from Metro sign (52.5085, 13.4395)
-      latitude = 52.5086;
-      longitude = 13.4396;
+      if (queueType === 'main') {
+        // Coordinates near Metro sign (main queue): lat=52.5085, lng=13.4395
+        latitude = 52.5086;
+        longitude = 13.4396;
+      } else {
+        // Coordinates near ATM (GL/reentry landmark): lat=52.5112, lng=13.4442
+        latitude = 52.5113;
+        longitude = 13.4443;
+      }
     } else {
       try {
         const location = await Location.getCurrentPositionAsync({
@@ -111,7 +140,7 @@ export default function HomeScreen() {
       }
     }
     
-    const success = await joinQueue('main', latitude, longitude);
+    const success = await joinQueue(queueType, latitude, longitude);
     if (success) {
       navigation.navigate('Queue');
     }

@@ -164,9 +164,9 @@ export default function QueueScreen() {
   };
 
   // Get markers for the current session's queue type
-  // For MVP, we filter based on marker names (main queue markers don't include GL landmarks)
+  // Main queue has its own landmarks; GL and Re-entry share the same landmarks
   const glMarkerNames = ['Barriers', 'Love sculpture', 'Garten door', 'ATM', 'Park'];
-  const mainQueueMarkers = session?.queue_type === 'main' 
+  const queueMarkers = session?.queue_type === 'main' 
     ? markers.filter(m => !glMarkerNames.includes(m.name))
     : markers.filter(m => glMarkerNames.includes(m.name));
 
@@ -199,6 +199,12 @@ export default function QueueScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>In Queue</Text>
+        <View style={styles.queueTypeBadge}>
+          <Text style={styles.queueTypeText}>
+            {session.queue_type === 'guest_list' ? 'Guestlist' : 
+             session.queue_type === 'reentry' ? 'Re-entry' : 'Main Queue'}
+          </Text>
+        </View>
         <Text style={styles.timeInQueue}>{getTimeInQueue()}</Text>
       </View>
 
@@ -243,7 +249,7 @@ export default function QueueScreen() {
         </Text>
         
         <View style={styles.checkpointGrid}>
-          {mainQueueMarkers.map((marker, index) => (
+          {queueMarkers.map((marker, index) => (
             <TouchableOpacity
               key={marker.id}
               style={[
@@ -353,6 +359,18 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.accent,
     marginTop: spacing.xs,
+  },
+  queueTypeBadge: {
+    backgroundColor: colors.surfaceLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
+  },
+  queueTypeText: {
+    ...typography.bodySmall,
+    color: colors.accent,
+    fontWeight: '600',
   },
   positionCard: {
     backgroundColor: colors.surface,

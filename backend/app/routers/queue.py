@@ -56,14 +56,21 @@ def find_nearest_marker(
     lat: float, 
     lon: float, 
     markers: list[SpatialMarker],
-    queue_type: str = "main"
+    queue_type: str = "main",
+    queue_id: Optional[uuid.UUID] = None,
 ) -> Optional[SpatialMarker]:
     """Find the nearest spatial marker to a GPS coordinate."""
-    # Filter markers by queue type (GL markers have "(GL)" in name)
-    if queue_type == "main":
-        filtered = [m for m in markers if "(GL)" not in m.name]
+    # Filter markers by queue_id if provided, otherwise use all markers
+    if queue_id:
+        filtered = [m for m in markers if m.queue_id == queue_id]
     else:
-        filtered = [m for m in markers if "(GL)" in m.name]
+        # Fallback: filter by known main queue marker names
+        main_markers = ['Snake', 'Concrete blocks', 'Magic Cube', 'Kiosk', 
+                        '20m behind Kiosk', 'Wriezener Karree', 'Metro sign']
+        if queue_type == "main":
+            filtered = [m for m in markers if m.name in main_markers]
+        else:
+            filtered = [m for m in markers if m.name not in main_markers]
     
     if not filtered:
         return None
@@ -259,18 +266,28 @@ async def join_queue(
         )
         db.add(position)
         
+        # Get the queue for this queue_type to filter markers correctly
+        queue_result = await db.execute(
+            select(Queue).where(
+                Queue.club_id == club.id,
+                Queue.queue_type == request.queue_type,
+            )
+        )
+        queue = queue_result.scalar_one_or_none()
+        
         # Get all markers for the club
         marker_result = await db.execute(
             select(SpatialMarker).where(SpatialMarker.club_id == club.id)
         )
         all_markers = marker_result.scalars().all()
         
-        # Find nearest marker
+        # Find nearest marker (filter by queue_id if we have the queue)
         nearest_marker = find_nearest_marker(
             request.latitude, 
             request.longitude, 
             all_markers,
-            request.queue_type
+            request.queue_type,
+            queue.id if queue else None,
         )
         
         # Record as queue length update (joining at back of queue = queue end)
