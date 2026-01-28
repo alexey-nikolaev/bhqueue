@@ -106,7 +106,8 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   fetchSession: async () => {
     try {
       const session = await getQueueSession();
-      set({ session });
+      // Clear error when session is fetched successfully
+      set({ session, error: null });
     } catch (error: any) {
       console.error('Failed to fetch session:', error);
     }

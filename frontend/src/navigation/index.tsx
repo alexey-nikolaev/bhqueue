@@ -26,7 +26,7 @@ const Tab = createBottomTabNavigator();
 // Tab icon component
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Home: '🏠',
+    Home: '⬆️',
     Profile: '👤',
   };
   

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { colors, typography, spacing, borderRadius, getQueueColor, getFlowStatus } from '../theme';
+import { colors, typography, spacing, borderRadius } from '../theme';
 import { useQueueStore } from '../store/queueStore';
 import { useAuthStore } from '../store/authStore';
 
@@ -237,38 +237,16 @@ export default function HomeScreen() {
 
       {/* Queue Estimate Card */}
       {clubStatus?.is_open && (
-        <View style={styles.queueCard}>
-          <Text style={styles.queueLabel}>Estimated Wait</Text>
-          <View style={styles.queueTimeContainer}>
-            {queueStatus?.estimated_wait_minutes ? (
-              <>
-                <Text style={[styles.queueTime, { color: getQueueColor(queueStatus.estimated_wait_minutes) }]}>
-                  {queueStatus.estimated_wait_minutes}
-                </Text>
-                <Text style={styles.queueUnit}>min</Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.queueTime, { color: colors.textMuted }]}>--</Text>
-                <Text style={styles.queueUnit}>min</Text>
-              </>
-            )}
-          </View>
-          {queueStatus?.confidence && queueStatus.estimated_wait_minutes ? (
-            <Text style={styles.queueConfidence}>
-              {queueStatus.confidence} confidence • {queueStatus.data_points} reports
-            </Text>
+        <View style={styles.waitCard}>
+          <Text style={styles.waitLabel}>Estimated wait</Text>
+          {queueStatus?.estimated_wait_minutes ? (
+            <Text style={styles.waitValue}>~{queueStatus.estimated_wait_minutes} min</Text>
           ) : (
-            <Text style={styles.queueConfidence}>No data yet</Text>
+            <Text style={[styles.waitValue, { color: colors.textMuted }]}>No data yet</Text>
           )}
           {queueStatus?.spatial_marker && (
-            <Text style={styles.queueHint}>
-              Queue extends to: {queueStatus.spatial_marker}
-            </Text>
-          )}
-          {!queueStatus?.estimated_wait_minutes && (
-            <Text style={styles.queueHint}>
-              Be the first to report the queue!
+            <Text style={styles.waitHint}>
+              Queue at: {queueStatus.spatial_marker}
             </Text>
           )}
         </View>
@@ -276,28 +254,17 @@ export default function HomeScreen() {
 
       {/* Action Button */}
       {clubStatus?.is_open && (
-        session ? (
-          // Already in queue - show continue button
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleContinueQueue}
-          >
-            <Text style={styles.actionButtonText}>Continue session →</Text>
-          </TouchableOpacity>
-        ) : (
-          // Not in queue - show join button
-          <TouchableOpacity 
-            style={[styles.actionButton, isJoining && styles.actionButtonDisabled]}
-            onPress={handleJoinQueue}
-            disabled={isJoining}
-          >
-            {isJoining ? (
-              <ActivityIndicator color={colors.buttonText} />
-            ) : (
-              <Text style={styles.actionButtonText}>I'm in the queue</Text>
-            )}
-          </TouchableOpacity>
-        )
+        <TouchableOpacity 
+          style={[styles.actionButton, isJoining && styles.actionButtonDisabled]}
+          onPress={session ? handleContinueQueue : handleJoinQueue}
+          disabled={isJoining}
+        >
+          {isJoining ? (
+            <ActivityIndicator color={colors.buttonText} />
+          ) : (
+            <Text style={styles.actionButtonText}>I'm in the queue</Text>
+          )}
+        </TouchableOpacity>
       )}
 
       {/* Last Updated */}
@@ -415,41 +382,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  queueCard: {
+  waitCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  queueLabel: {
+  waitLabel: {
     ...typography.label,
     color: colors.textMuted,
   },
-  queueTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: spacing.sm,
-  },
-  queueTime: {
-    ...typography.number,
+  waitValue: {
+    ...typography.h1,
     color: colors.accent,
+    marginTop: spacing.xs,
   },
-  queueUnit: {
-    ...typography.h2,
-    color: colors.textSecondary,
-    marginLeft: spacing.xs,
-  },
-  queueConfidence: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.sm,
-  },
-  queueHint: {
+  waitHint: {
     ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: spacing.md,
-    textAlign: 'center',
   },
   actionButton: {
     backgroundColor: colors.accent,

@@ -312,7 +312,7 @@ async def join_queue(
     return QueueSessionResponse(
         id=session.id,
         queue_type=session.queue_type,
-        joined_at=session.joined_at.isoformat(),
+        joined_at=session.joined_at.isoformat() + 'Z',
         position_count=1 if request.latitude else 0,
         nearest_marker_id=nearest_marker.id if nearest_marker else None,
         nearest_marker_name=nearest_marker.name if nearest_marker else None,
@@ -346,9 +346,9 @@ async def get_current_session(
     return QueueSessionResponse(
         id=session.id,
         queue_type=session.queue_type,
-        joined_at=session.joined_at.isoformat(),
+        joined_at=session.joined_at.isoformat() + 'Z',
         result=session.result,
-        result_at=session.result_at.isoformat() if session.result_at else None,
+        result_at=session.result_at.isoformat() + 'Z' if session.result_at else None,
         wait_duration_minutes=session.wait_duration_minutes,
         position_count=len(session.position_updates) if session.position_updates else 0,
     )
@@ -542,9 +542,9 @@ async def submit_result(
     return QueueSessionResponse(
         id=session.id,
         queue_type=session.queue_type,
-        joined_at=session.joined_at.isoformat(),
+        joined_at=session.joined_at.isoformat() + 'Z',
         result=session.result,
-        result_at=session.result_at.isoformat() if session.result_at else None,
+        result_at=session.result_at.isoformat() + 'Z' if session.result_at else None,
         wait_duration_minutes=session.wait_duration_minutes,
         position_count=len(session.position_updates) if session.position_updates else 0,
     )

@@ -2,9 +2,8 @@
  * Queue Screen - Active queue session UI
  * 
  * Shows:
- * - Current position in queue (last checkpoint)
- * - Estimated wait time
- * - Checkpoint buttons (markers)
+ * - Estimated wait time based on selected landmark
+ * - Checkpoint buttons (landmarks)
  * - Result buttons (admitted/rejected)
  * - Leave queue option
  */
@@ -17,10 +16,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useQueueStore } from '../store/queueStore';
@@ -32,81 +29,32 @@ export default function QueueScreen() {
     session,
     markers,
     currentMarker,
-    queueStatus,
     isSubmitting,
     error,
     fetchMarkers,
-    fetchStatus,
     submitCheckpoint,
-    submitPosition,
     submitResult,
     leaveQueue,
     clearError,
   } = useQueueStore();
 
-  const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Request location permission
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status === 'granted');
-    })();
-  }, []);
-
-  // Fetch markers and status on mount
+  // Fetch markers on mount
   useEffect(() => {
     fetchMarkers();
-    fetchStatus();
   }, []);
-
-  // Periodic position updates (silent - GPS is optional)
-  useEffect(() => {
-    if (!locationPermission || !session) return;
-
-    const updatePosition = async () => {
-      try {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        // Silent submission - don't show errors for GPS
-        submitPosition(
-          location.coords.latitude,
-          location.coords.longitude,
-          location.coords.accuracy ?? undefined
-        ).catch(() => {}); // Ignore errors silently
-      } catch (e) {
-        // GPS not available - that's okay
-      }
-    };
-
-    // Initial position
-    updatePosition();
-    
-    // Update every 2 minutes
-    const interval = setInterval(updatePosition, 120000);
-
-    return () => clearInterval(interval);
-  }, [locationPermission, session]);
 
   // Handle refresh
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchMarkers(), fetchStatus()]);
+    await fetchMarkers();
     setIsRefreshing(false);
   }, []);
 
   // Handle checkpoint press
   const handleCheckpoint = async (marker: SpatialMarker) => {
-    const { waitMinutes } = await submitCheckpoint(marker);
-    if (waitMinutes !== null) {
-      Alert.alert(
-        'Checkpoint Recorded',
-        `You're at ${marker.name}. Estimated wait: ~${waitMinutes} minutes.`,
-        [{ text: 'OK' }]
-      );
-    }
+    await submitCheckpoint(marker);
   };
 
   // Handle result press
@@ -151,18 +99,6 @@ export default function QueueScreen() {
     );
   };
 
-  // Calculate time in queue
-  const getTimeInQueue = () => {
-    if (!session?.joined_at) return null;
-    const joined = new Date(session.joined_at);
-    const now = new Date();
-    const minutes = Math.floor((now.getTime() - joined.getTime()) / 60000);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
-
   // Get markers for the current session's queue type
   // Main queue has its own landmarks; GL and Re-entry share the same landmarks
   const glMarkerNames = ['Barriers', 'Love sculpture', 'Garten door', 'ATM', 'Park'];
@@ -205,39 +141,32 @@ export default function QueueScreen() {
              session.queue_type === 'reentry' ? 'Re-entry' : 'Main Queue'}
           </Text>
         </View>
-        <Text style={styles.timeInQueue}>{getTimeInQueue()}</Text>
       </View>
 
-      {/* Current Position Card */}
-      <View style={styles.positionCard}>
-        <Text style={styles.positionLabel}>Your Position</Text>
-        <Text style={styles.positionValue}>
-          {currentMarker?.name || 'Not set yet'}
-        </Text>
-        {currentMarker?.typical_wait_minutes != null && currentMarker.typical_wait_minutes > 0 && (
-          <Text style={styles.estimatedWait}>
-            ~{currentMarker.typical_wait_minutes} min estimated
-          </Text>
-        )}
+      {/* Result Section - At the door? */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>At the door?</Text>
+        <View style={styles.resultButtonsRow}>
+          <TouchableOpacity
+            style={[styles.resultButtonSmall, styles.admittedButton]}
+            onPress={() => handleResult('admitted')}
+          >
+            <Text style={styles.resultButtonText}>I got in! 🎉</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.resultButtonSmall, styles.rejectedButton]}
+            onPress={() => handleResult('rejected')}
+          >
+            <Text style={styles.rejectedButtonText}>Rejected 😔</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Queue Status */}
-      {queueStatus && queueStatus.estimated_wait_minutes != null && queueStatus.estimated_wait_minutes > 0 && (
-        <View style={styles.statusCard}>
-          <Text style={styles.statusLabel}>Community Estimate</Text>
-          <View style={styles.statusRow}>
-            <Text style={styles.statusValue}>
-              ~{queueStatus.estimated_wait_minutes} min
-            </Text>
-            <Text style={styles.confidenceBadge}>
-              {queueStatus.confidence} confidence
-            </Text>
-          </View>
-          {queueStatus.spatial_marker && (
-            <Text style={styles.statusMarker}>
-              Queue to: {queueStatus.spatial_marker}
-            </Text>
-          )}
+      {/* Estimated Wait Card */}
+      {currentMarker?.typical_wait_minutes != null && currentMarker.typical_wait_minutes > 0 && (
+        <View style={styles.waitCard}>
+          <Text style={styles.waitLabel}>Estimated wait</Text>
+          <Text style={styles.waitValue}>~{currentMarker.typical_wait_minutes} min</Text>
         </View>
       )}
 
@@ -255,7 +184,6 @@ export default function QueueScreen() {
               style={[
                 styles.checkpointButton,
                 currentMarker?.id === marker.id && styles.checkpointActive,
-                // Make odd items (right column) have no right margin
                 index % 2 === 1 && { marginRight: 0 },
               ]}
               onPress={() => handleCheckpoint(marker)}
@@ -267,43 +195,8 @@ export default function QueueScreen() {
               ]}>
                 {marker.name}
               </Text>
-              {marker.typical_wait_minutes !== null && marker.typical_wait_minutes !== undefined && (
-                <Text style={[
-                  styles.checkpointWait,
-                  currentMarker?.id === marker.id && styles.checkpointWaitActive,
-                ]}>
-                  ~{marker.typical_wait_minutes}m
-                </Text>
-              )}
             </TouchableOpacity>
           ))}
-        </View>
-      </View>
-
-      {/* Result Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>At the door?</Text>
-        
-        <View style={styles.resultButtons}>
-          <TouchableOpacity
-            style={[styles.resultButton, styles.admittedButton]}
-            onPress={() => handleResult('admitted')}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={colors.buttonText} />
-            ) : (
-              <Text style={styles.resultButtonText}>I got in! 🎉</Text>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.resultButton, styles.rejectedButton]}
-            onPress={() => handleResult('rejected')}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.rejectedButtonText}>Rejected 😔</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -324,16 +217,6 @@ export default function QueueScreen() {
         </TouchableOpacity>
       )}
 
-      {/* GPS Status */}
-      <View style={styles.gpsStatus}>
-        <View style={[
-          styles.gpsDot,
-          { backgroundColor: locationPermission ? colors.success : colors.error }
-        ]} />
-        <Text style={styles.gpsText}>
-          {locationPermission ? 'GPS tracking active' : 'GPS not available'}
-        </Text>
-      </View>
     </ScrollView>
   );
 }
@@ -355,11 +238,6 @@ const styles = StyleSheet.create({
     ...typography.h1,
     color: colors.textPrimary,
   },
-  timeInQueue: {
-    ...typography.h3,
-    color: colors.accent,
-    marginTop: spacing.xs,
-  },
   queueTypeBadge: {
     backgroundColor: colors.surfaceLight,
     paddingHorizontal: spacing.md,
@@ -372,61 +250,21 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
-  positionCard: {
+  waitCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     alignItems: 'center',
     marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: colors.accent,
   },
-  positionLabel: {
+  waitLabel: {
     ...typography.label,
     color: colors.textMuted,
   },
-  positionValue: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    marginTop: spacing.sm,
-  },
-  estimatedWait: {
-    ...typography.body,
+  waitValue: {
+    ...typography.h1,
     color: colors.accent,
     marginTop: spacing.xs,
-  },
-  statusCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  statusLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  statusValue: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  confidenceBadge: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    backgroundColor: colors.surfaceLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  statusMarker: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
   },
   section: {
     marginBottom: spacing.xl,
@@ -458,33 +296,28 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   checkpointActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.surface,
     borderColor: colors.accent,
+    borderWidth: 2,
   },
   checkpointText: {
     ...typography.body,
     color: colors.textPrimary,
   },
   checkpointTextActive: {
-    color: colors.buttonText,
+    color: colors.accent,
     fontWeight: '600',
   },
-  checkpointWait: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.xs,
-  },
-  checkpointWaitActive: {
-    color: colors.buttonText,
-    opacity: 0.8,
-  },
-  resultButtons: {
+  resultButtonsRow: {
+    flexDirection: 'row',
     gap: spacing.md,
   },
-  resultButton: {
+  resultButtonSmall: {
+    flex: 1,
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   admittedButton: {
     backgroundColor: colors.success,
@@ -497,12 +330,12 @@ const styles = StyleSheet.create({
   resultButtonText: {
     ...typography.button,
     color: colors.buttonText,
-    fontSize: 18,
+    fontSize: 16,
   },
   rejectedButtonText: {
     ...typography.button,
     color: colors.error,
-    fontSize: 18,
+    fontSize: 16,
   },
   leaveButton: {
     alignItems: 'center',
@@ -529,22 +362,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     opacity: 0.7,
     marginTop: spacing.xs,
-  },
-  gpsStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.lg,
-  },
-  gpsDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: spacing.sm,
-  },
-  gpsText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
   },
   noSessionText: {
     ...typography.body,
