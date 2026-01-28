@@ -1,6 +1,9 @@
 /**
  * KlubFlow Reddit Queue Monitor
  * 
+ * STATUS: ON HOLD - Awaiting r/Berghain_Community moderator permission.
+ * The backend endpoint is disabled (ENABLE_REDDIT_PARSING=false).
+ * 
  * This Devvit app monitors posts with "LIVE QUEUE UPDATES" flair
  * in r/Berghain_Community and sends raw messages to the KlubFlow backend.
  * 

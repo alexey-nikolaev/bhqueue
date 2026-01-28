@@ -10,9 +10,9 @@ Real-time queue tracking API for Berlin nightclubs, starting with Berghain.
 - **Database**: PostgreSQL with SQLAlchemy (async)
 - **Authentication**: JWT + OAuth (planned: Google, Apple)
 - **Data Sources**:
-  - **Reddit**: Devvit app (pushes data to our backend)
+  - **Reddit**: Devvit app (ON HOLD - awaiting r/Berghain_Community permission)
   - **Telegram**: Telethon API
-  - **Users**: Mobile app submissions
+  - **Users**: Mobile app submissions (GPS + checkpoint confirmations)
 
 ## Architecture
 

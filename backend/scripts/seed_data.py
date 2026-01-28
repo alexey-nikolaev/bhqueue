@@ -59,24 +59,17 @@ BERGHAIN_QUEUES = [
 # Coordinates are approximate - refine with GPS data collection.
 
 # Main queue markers
+# Based on r/Berghain_Community FAQ:
+# snake, concrete blocks, magic cube, kiosk, 20m behind kiosk, Wriezener Karree, Metro sign
 MAIN_QUEUE_MARKERS = [
     {
-        "name": "Door",
-        "aliases": ["door", "entrance", "türsteher", "bouncer", "eingang"],
-        "latitude": 52.5108,
-        "longitude": 13.4434,
-        "distance_from_door_meters": 0,
-        "typical_wait_minutes": 0,
-        "display_order": 1,
-    },
-    {
         "name": "Snake",
-        "aliases": ["snake", "schlange"],
+        "aliases": ["snake", "schlange", "door", "entrance"],
         "latitude": 52.5107,
         "longitude": 13.4432,
         "distance_from_door_meters": 30,
         "typical_wait_minutes": 15,
-        "display_order": 2,
+        "display_order": 1,
     },
     {
         "name": "Concrete blocks",
@@ -84,8 +77,8 @@ MAIN_QUEUE_MARKERS = [
         "latitude": 52.5106,
         "longitude": 13.4430,
         "distance_from_door_meters": 60,
-        "typical_wait_minutes": 25,
-        "display_order": 3,
+        "typical_wait_minutes": 30,
+        "display_order": 2,
     },
     {
         "name": "Magic Cube",
@@ -93,8 +86,8 @@ MAIN_QUEUE_MARKERS = [
         "latitude": 52.5105,
         "longitude": 13.4428,
         "distance_from_door_meters": 100,
-        "typical_wait_minutes": 40,
-        "display_order": 4,
+        "typical_wait_minutes": 45,
+        "display_order": 3,
     },
     {
         "name": "Kiosk",
@@ -102,78 +95,44 @@ MAIN_QUEUE_MARKERS = [
         "latitude": 52.5103,
         "longitude": 13.4425,
         "distance_from_door_meters": 150,
-        "typical_wait_minutes": 55,
-        "display_order": 5,
+        "typical_wait_minutes": 60,
+        "display_order": 4,
     },
     {
-        "name": "Past Kiosk",
-        "aliases": ["past kiosk", "behind kiosk", "nach kiosk"],
+        "name": "20m behind Kiosk",
+        "aliases": ["past kiosk", "behind kiosk", "nach kiosk", "20m kiosk", "+20m kiosk"],
         "latitude": 52.5101,
         "longitude": 13.4422,
         "distance_from_door_meters": 200,
-        "typical_wait_minutes": 70,
-        "display_order": 6,
-    },
-    {
-        "name": "Späti",
-        "aliases": ["späti", "spati", "spätkauf"],
-        "latitude": 52.5099,
-        "longitude": 13.4418,
-        "distance_from_door_meters": 280,
-        "typical_wait_minutes": 90,
-        "display_order": 7,
-    },
-    {
-        "name": "Bridge",
-        "aliases": ["bridge", "brücke"],
-        "latitude": 52.5097,
-        "longitude": 13.4414,
-        "distance_from_door_meters": 350,
-        "typical_wait_minutes": 100,
-        "display_order": 8,
-    },
-    {
-        "name": "Around the block",
-        "aliases": ["around the block", "um die ecke", "corner"],
-        "latitude": 52.5095,
-        "longitude": 13.4410,
-        "distance_from_door_meters": 400,
-        "typical_wait_minutes": 120,
-        "display_order": 9,
-    },
-    {
-        "name": "Wriezener Straße",
-        "aliases": ["wriezener", "am wriezener", "wriezener straße", "wriezener strasse"],
-        "latitude": 52.5092,
-        "longitude": 13.4405,
-        "distance_from_door_meters": 500,
-        "typical_wait_minutes": 140,
-        "display_order": 10,
+        "typical_wait_minutes": 75,
+        "display_order": 5,
     },
     {
         "name": "Wriezener Karree",
-        "aliases": ["wriezener karree", "karree"],
+        "aliases": ["wriezener karree", "karree", "wriezener"],
         "latitude": 52.5089,
         "longitude": 13.4400,
-        "distance_from_door_meters": 550,
-        "typical_wait_minutes": 150,
-        "display_order": 11,
+        "distance_from_door_meters": 450,
+        "typical_wait_minutes": 120,
+        "display_order": 6,
     },
     {
         "name": "Metro sign",
         "aliases": ["metro", "metro sign", "u-bahn", "ubahn"],
         "latitude": 52.5085,
         "longitude": 13.4395,
-        "distance_from_door_meters": 650,
-        "typical_wait_minutes": 180,
-        "display_order": 12,
+        "distance_from_door_meters": 550,
+        "typical_wait_minutes": 150,
+        "display_order": 7,
     },
 ]
 
 # Guestlist / Re-entry queue markers (shared between GL and re-entry)
+# Based on r/Berghain_Community FAQ:
+# barriers, love sculpture, garten door, ATM, park
 GL_QUEUE_MARKERS = [
     {
-        "name": "Barriers (GL)",
+        "name": "Barriers",
         "aliases": ["barrier", "barriers", "gl barrier", "guestlist barrier"],
         "latitude": 52.5109,
         "longitude": 13.4436,
@@ -182,7 +141,7 @@ GL_QUEUE_MARKERS = [
         "display_order": 1,
     },
     {
-        "name": "Love sculpture (GL)",
+        "name": "Love sculpture",
         "aliases": ["love", "love sculpture", "love skulptur"],
         "latitude": 52.5110,
         "longitude": 13.4438,
@@ -191,7 +150,7 @@ GL_QUEUE_MARKERS = [
         "display_order": 2,
     },
     {
-        "name": "Garten door (GL)",
+        "name": "Garten door",
         "aliases": ["garten", "garten door", "garden", "garden door"],
         "latitude": 52.5111,
         "longitude": 13.4440,
@@ -200,7 +159,7 @@ GL_QUEUE_MARKERS = [
         "display_order": 3,
     },
     {
-        "name": "ATM (GL)",
+        "name": "ATM",
         "aliases": ["atm", "geldautomat", "cash machine"],
         "latitude": 52.5112,
         "longitude": 13.4442,
@@ -209,7 +168,7 @@ GL_QUEUE_MARKERS = [
         "display_order": 4,
     },
     {
-        "name": "Park (GL)",
+        "name": "Park",
         "aliases": ["park", "gl park"],
         "latitude": 52.5114,
         "longitude": 13.4445,

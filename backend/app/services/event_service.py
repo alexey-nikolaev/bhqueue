@@ -196,7 +196,7 @@ def is_klubnacht_active() -> bool:
 # ============================================================================
 # TESTING MODE - Set to True to force club to appear open
 # ============================================================================
-TESTING_MODE = False
+TESTING_MODE = True
 
 
 def get_club_status() -> dict:

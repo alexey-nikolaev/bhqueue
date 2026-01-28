@@ -7,9 +7,10 @@ Handles:
 - Queue status aggregation
 """
 
+import math
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
@@ -29,6 +30,57 @@ from app.services.queue_parser import (
 )
 
 router = APIRouter()
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two GPS coordinates in meters."""
+    R = 6371000  # Earth radius in meters
+    
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_phi / 2) ** 2 + \
+        math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
+
+
+def find_nearest_marker(
+    lat: float, 
+    lon: float, 
+    markers: list[SpatialMarker],
+    queue_type: str = "main"
+) -> Optional[SpatialMarker]:
+    """Find the nearest spatial marker to a GPS coordinate."""
+    # Filter markers by queue type (GL markers have "(GL)" in name)
+    if queue_type == "main":
+        filtered = [m for m in markers if "(GL)" not in m.name]
+    else:
+        filtered = [m for m in markers if "(GL)" in m.name]
+    
+    if not filtered:
+        return None
+    
+    nearest = None
+    min_distance = float('inf')
+    
+    for marker in filtered:
+        distance = haversine_distance(
+            lat, lon, 
+            float(marker.latitude), float(marker.longitude)
+        )
+        if distance < min_distance:
+            min_distance = distance
+            nearest = marker
+    
+    return nearest
 
 
 # =============================================================================
@@ -97,6 +149,9 @@ class QueueSessionResponse(BaseModel):
     wait_duration_minutes: Optional[int] = None
     position_count: int = 0
     last_marker: Optional[str] = None
+    # Nearest marker when joining (for pre-selection)
+    nearest_marker_id: Optional[uuid.UUID] = None
+    nearest_marker_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -191,8 +246,10 @@ async def join_queue(
     db.add(session)
     await db.flush()
     
-    # Add initial position if provided
+    # Find nearest marker and record queue length
+    nearest_marker = None
     if request.latitude and request.longitude:
+        # Add initial position
         position = PositionUpdate(
             id=uuid.uuid4(),
             session_id=session.id,
@@ -201,6 +258,36 @@ async def join_queue(
             recorded_at=now,
         )
         db.add(position)
+        
+        # Get all markers for the club
+        marker_result = await db.execute(
+            select(SpatialMarker).where(SpatialMarker.club_id == club.id)
+        )
+        all_markers = marker_result.scalars().all()
+        
+        # Find nearest marker
+        nearest_marker = find_nearest_marker(
+            request.latitude, 
+            request.longitude, 
+            all_markers,
+            request.queue_type
+        )
+        
+        # Record as queue length update (joining at back of queue = queue end)
+        if nearest_marker:
+            parsed_update = ParsedUpdate(
+                club_id=club.id,
+                event_id=event.id,
+                source="user_join",
+                source_id=f"join-{session.id}",
+                raw_text=f"User joined queue near {nearest_marker.name}",
+                parsed_spatial_marker=nearest_marker.name,
+                parsed_wait_minutes=nearest_marker.typical_wait_minutes,
+                confidence=0.8,  # Good confidence for GPS-based detection
+                source_timestamp=now,
+                author_name=current_user.display_name or current_user.email,
+            )
+            db.add(parsed_update)
     
     await db.commit()
     await db.refresh(session)
@@ -210,6 +297,8 @@ async def join_queue(
         queue_type=session.queue_type,
         joined_at=session.joined_at.isoformat(),
         position_count=1 if request.latitude else 0,
+        nearest_marker_id=nearest_marker.id if nearest_marker else None,
+        nearest_marker_name=nearest_marker.name if nearest_marker else None,
     )
 
 
@@ -275,10 +364,13 @@ async def submit_position(
             detail="No active queue session. Join the queue first.",
         )
     
-    # Parse recorded_at
+    # Parse recorded_at (strip timezone for DB compatibility)
     if request.recorded_at:
         try:
             recorded_at = datetime.fromisoformat(request.recorded_at.replace('Z', '+00:00'))
+            # Convert to naive UTC for database storage
+            if recorded_at.tzinfo is not None:
+                recorded_at = recorded_at.replace(tzinfo=None)
         except ValueError:
             recorded_at = datetime.utcnow()
     else:
@@ -335,21 +427,11 @@ async def submit_checkpoint(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
     
-    # Create a parsed update from this checkpoint
-    parsed_update = ParsedUpdate(
-        club_id=marker.club_id,
-        source="user",
-        source_id=f"checkpoint-{session.id}-{marker.id}",
-        raw_text=f"User checkpoint: {marker.name}",
-        parsed_spatial_marker=marker.name,
-        parsed_wait_minutes=marker.typical_wait_minutes,
-        confidence=0.9,  # High confidence for user-confirmed checkpoints
-        source_timestamp=datetime.utcnow(),
-        author_name=current_user.display_name or current_user.email,
-    )
-    db.add(parsed_update)
+    # NOTE: We don't create ParsedUpdate here because user checkpoints
+    # represent "where I am" NOT "where the queue ends". Community queue
+    # status comes from Reddit/Telegram reports only.
     
-    # Also create a position update at marker location
+    # Create a position update at marker location (for GPS tracking)
     position = PositionUpdate(
         id=uuid.uuid4(),
         session_id=session.id,
@@ -498,7 +580,19 @@ async def receive_reddit_update(
 ):
     """
     Receive queue updates from the KlubFlow Devvit app.
+    
+    NOTE: Currently disabled - awaiting r/Berghain_Community permission.
+    Set ENABLE_REDDIT_PARSING=true in .env to enable.
     """
+    from app.config import get_settings
+    settings = get_settings()
+    
+    if not settings.enable_reddit_parsing:
+        return UpdateResponse(
+            success=False,
+            message="Reddit parsing is currently disabled",
+        )
+    
     if x_source != "devvit-klubflow":
         raise HTTPException(status_code=403, detail="Invalid source")
     

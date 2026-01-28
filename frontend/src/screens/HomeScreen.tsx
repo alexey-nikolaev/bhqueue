@@ -84,17 +84,31 @@ export default function HomeScreen() {
   };
 
   const doJoinQueue = async () => {
+    // Fetch markers first so we can pre-select after join
+    await useQueueStore.getState().fetchMarkers();
+    
     let latitude: number | undefined;
     let longitude: number | undefined;
     
-    try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      latitude = location.coords.latitude;
-      longitude = location.coords.longitude;
-    } catch (e) {
-      console.log('Could not get location:', e);
+    // ==========================================================================
+    // TESTING: Use coordinates near Metro sign for testing
+    // Comment out this block and uncomment the real GPS block for production
+    // ==========================================================================
+    const TESTING_MODE = true;
+    if (TESTING_MODE) {
+      // Coordinates slightly offset from Metro sign (52.5085, 13.4395)
+      latitude = 52.5086;
+      longitude = 13.4396;
+    } else {
+      try {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        latitude = location.coords.latitude;
+        longitude = location.coords.longitude;
+      } catch (e) {
+        console.log('Could not get location:', e);
+      }
     }
     
     const success = await joinQueue('main', latitude, longitude);

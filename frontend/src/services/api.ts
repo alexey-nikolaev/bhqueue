@@ -116,6 +116,9 @@ export interface QueueSession {
   wait_duration_minutes: number | null;
   position_count: number;
   last_marker: string | null;
+  // Nearest marker when joining (for pre-selection)
+  nearest_marker_id: string | null;
+  nearest_marker_name: string | null;
 }
 
 export interface QueueStatusResponse {

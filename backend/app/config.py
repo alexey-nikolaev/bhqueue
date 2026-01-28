@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     # Reddit (Devvit handles this - no API credentials needed)
     # The Devvit app pushes data to our /api/queue/reddit-update endpoint
+    # Disabled until we get r/Berghain_Community permission
+    enable_reddit_parsing: bool = False
 
     # Telegram API
     telegram_api_id: Optional[str] = None  # Stored as string, converted when needed

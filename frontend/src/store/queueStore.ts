@@ -117,7 +117,15 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ isJoining: true, error: null });
     try {
       const session = await apiJoinQueue('berghain', queueType, latitude, longitude);
-      set({ session, isJoining: false });
+      
+      // Pre-select the nearest marker if returned
+      let currentMarker = null;
+      if (session.nearest_marker_id) {
+        const { markers } = get();
+        currentMarker = markers.find(m => m.id === session.nearest_marker_id) || null;
+      }
+      
+      set({ session, currentMarker, isJoining: false });
       return true;
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Failed to join queue';
@@ -129,7 +137,8 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   // Submit GPS position
   submitPosition: async (latitude: number, longitude: number, accuracy?: number) => {
     const { session } = get();
-    if (!session) return;
+    // Don't submit if no session or session already has a result
+    if (!session || session.result) return;
     
     try {
       await apiSubmitPosition(latitude, longitude, accuracy);
@@ -141,7 +150,8 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   // Submit checkpoint (user confirms passing a marker)
   submitCheckpoint: async (marker: SpatialMarker) => {
     const { session } = get();
-    if (!session) return { waitMinutes: null };
+    // Don't submit if no session or session already has a result
+    if (!session || session.result) return { waitMinutes: null };
     
     set({ isSubmitting: true });
     try {
@@ -162,9 +172,10 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   submitResult: async (result: 'admitted' | 'rejected') => {
     set({ isSubmitting: true, error: null });
     try {
-      const updatedSession = await apiSubmitResult(result);
+      await apiSubmitResult(result);
+      // Clear session - it's now complete, stops GPS updates
       set({ 
-        session: updatedSession,
+        session: null,
         isSubmitting: false,
         currentMarker: null,
       });

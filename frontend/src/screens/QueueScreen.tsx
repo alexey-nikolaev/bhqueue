@@ -55,9 +55,10 @@ export default function QueueScreen() {
     })();
   }, []);
 
-  // Fetch markers on mount
+  // Fetch markers and status on mount
   useEffect(() => {
     fetchMarkers();
+    fetchStatus();
   }, []);
 
   // Periodic position updates (silent - GPS is optional)
@@ -162,8 +163,12 @@ export default function QueueScreen() {
     return `${hours}h ${mins}m`;
   };
 
-  // Filter markers for main queue (not GL)
-  const mainQueueMarkers = markers.filter(m => !m.name.includes('(GL)'));
+  // Get markers for the current session's queue type
+  // For MVP, we filter based on marker names (main queue markers don't include GL landmarks)
+  const glMarkerNames = ['Barriers', 'Love sculpture', 'Garten door', 'ATM', 'Park'];
+  const mainQueueMarkers = session?.queue_type === 'main' 
+    ? markers.filter(m => !glMarkerNames.includes(m.name))
+    : markers.filter(m => glMarkerNames.includes(m.name));
 
   if (!session) {
     return (
