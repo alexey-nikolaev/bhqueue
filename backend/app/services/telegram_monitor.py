@@ -54,7 +54,7 @@ class TelegramMonitor:
         Returns True if connected successfully.
         """
         if not settings.telegram_api_id or not settings.telegram_api_hash:
-            print("Telegram credentials not configured")
+            print("Telegram credentials not configured", flush=True)
             return False
         
         try:
@@ -70,14 +70,14 @@ class TelegramMonitor:
         )
         
         await self.client.start(phone=settings.telegram_phone)
-        print("Connected to Telegram")
+        print("Connected to Telegram", flush=True)
         return True
     
     async def disconnect(self):
         """Disconnect from Telegram."""
         if self.client:
             await self.client.disconnect()
-            print("Disconnected from Telegram")
+            print("Disconnected from Telegram", flush=True)
     
     async def _get_replied_message_text(self, message: Message) -> Optional[str]:
         """
@@ -237,7 +237,7 @@ class TelegramMonitor:
             
             await callback(data)
         
-        print(f"Listening for messages in {BERGHAIN_GROUP}...")
+        print(f"Listening for messages in {BERGHAIN_GROUP}...", flush=True)
         await self.client.run_until_disconnected()
 
 

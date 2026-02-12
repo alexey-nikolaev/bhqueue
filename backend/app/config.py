@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     telegram_api_id: Optional[str] = None  # Stored as string, converted when needed
     telegram_api_hash: Optional[str] = None
     telegram_phone: Optional[str] = None
+    enable_telegram_monitoring: bool = True  # Auto-start Telegram monitor on startup
+    
+    # AI Parsing (Anthropic Claude)
+    anthropic_api_key: Optional[str] = None
+    enable_ai_parsing: bool = True  # Use AI for message parsing when available
     
     @property
     def telegram_api_id_int(self) -> Optional[int]:
