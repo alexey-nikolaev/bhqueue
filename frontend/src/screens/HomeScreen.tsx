@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useQueueStore } from '../store/queueStore';
 import { useAuthStore } from '../store/authStore';
+import LocationAcquisition from '../components/LocationAcquisition';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -36,6 +37,8 @@ export default function HomeScreen() {
   } = useQueueStore();
   const { user, isAuthenticated } = useAuthStore();
   const [locationStatus, setLocationStatus] = useState<string>('checking');
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [pendingQueueType, setPendingQueueType] = useState<'main' | 'guest_list' | 'reentry' | null>(null);
 
   const handleBack = () => {
     navigation.getParent()?.goBack();
@@ -82,63 +85,65 @@ export default function HomeScreen() {
 
   // Check location permission and join queue
   const checkLocationAndJoin = async (queueType: 'main' | 'guest_list' | 'reentry') => {
-    if (locationStatus !== 'granted') {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationStatus(status);
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          'Location Required',
-          'GPS helps track your queue position. You can still join without it.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Join Anyway', 
-              onPress: () => doJoinQueue(queueType) 
-            },
-          ]
-        );
-        return;
-      }
+    // ==========================================================================
+    // TESTING MODE: Set to false for production
+    // ==========================================================================
+    const TESTING_MODE = false;
+    
+    if (TESTING_MODE) {
+      // Use test coordinates without GPS modal
+      await doJoinQueueWithCoords(queueType, 
+        queueType === 'main' ? 52.5086 : 52.5113,
+        queueType === 'main' ? 13.4396 : 13.4443,
+        5 // Fake 5m accuracy
+      );
+      return;
     }
     
-    await doJoinQueue(queueType);
+    // Production: Show location acquisition modal
+    setPendingQueueType(queueType);
+    setShowLocationModal(true);
   };
 
-  const doJoinQueue = async (queueType: 'main' | 'guest_list' | 'reentry') => {
+  // Called when LocationAcquisition gets a valid position
+  const handleLocationAcquired = async (location: { latitude: number; longitude: number; accuracy: number }) => {
+    setShowLocationModal(false);
+    
+    if (pendingQueueType) {
+      await doJoinQueueWithCoords(
+        pendingQueueType,
+        location.latitude,
+        location.longitude,
+        location.accuracy
+      );
+    }
+    
+    setPendingQueueType(null);
+  };
+
+  // Called when user cancels location acquisition
+  const handleLocationCancel = () => {
+    setShowLocationModal(false);
+    setPendingQueueType(null);
+  };
+
+  // Called when location acquisition fails
+  const handleLocationError = (error: string) => {
+    setShowLocationModal(false);
+    setPendingQueueType(null);
+    Alert.alert('Location Error', error);
+  };
+
+  const doJoinQueueWithCoords = async (
+    queueType: 'main' | 'guest_list' | 'reentry',
+    latitude: number,
+    longitude: number,
+    accuracy: number
+  ) => {
     // Fetch markers first so we can pre-select after join
     await useQueueStore.getState().fetchMarkers();
     
-    let latitude: number | undefined;
-    let longitude: number | undefined;
-    
-    // ==========================================================================
-    // TESTING: Use coordinates near a landmark for testing
-    // Set TESTING_MODE to false for production
-    // ==========================================================================
-    const TESTING_MODE = true;
-    
-    if (TESTING_MODE) {
-      if (queueType === 'main') {
-        // Coordinates near Metro sign (main queue): lat=52.5085, lng=13.4395
-        latitude = 52.5086;
-        longitude = 13.4396;
-      } else {
-        // Coordinates near ATM (GL/reentry landmark): lat=52.5112, lng=13.4442
-        latitude = 52.5113;
-        longitude = 13.4443;
-      }
-    } else {
-      try {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        latitude = location.coords.latitude;
-        longitude = location.coords.longitude;
-      } catch (e) {
-        console.log('Could not get location:', e);
-      }
-    }
+    console.log(`Joining queue with GPS: ${latitude}, ${longitude} (±${accuracy}m)`);
     
     const success = await joinQueue(queueType, latitude, longitude);
     if (success) {
@@ -181,6 +186,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Location Acquisition Modal */}
+      <LocationAcquisition
+        visible={showLocationModal}
+        onLocationAcquired={handleLocationAcquired}
+        onCancel={handleLocationCancel}
+        onError={handleLocationError}
+      />
+
       {/* Back button */}
       <TouchableOpacity style={styles.backButton} onPress={handleBack}>
         <Text style={styles.backButtonText}>← Back</Text>
