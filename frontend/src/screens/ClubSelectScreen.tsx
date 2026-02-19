@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.secondary,
   },
   content: {
     padding: spacing.lg,
@@ -152,11 +152,11 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '700',
     color: colors.textPrimary,
-    letterSpacing: 1,
+    letterSpacing: 2,
   },
   tagline: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.secondary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
   },

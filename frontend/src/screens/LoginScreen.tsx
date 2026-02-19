@@ -131,14 +131,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...typography.h1,
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.textPrimary,
-    letterSpacing: 1,
+    letterSpacing: 2,
     textAlign: 'center',
   },
   tagline: {
     ...typography.bodySmall,
-    color: colors.accent,
+    color: colors.secondary,
     textAlign: 'center',
     marginTop: spacing.sm,
     fontStyle: 'italic',
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.secondary,
     marginLeft: spacing.xs,
   },
 });

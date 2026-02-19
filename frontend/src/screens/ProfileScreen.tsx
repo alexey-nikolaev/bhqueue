@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -184,13 +184,13 @@ const styles = StyleSheet.create({
   logoutButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: colors.textMuted,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     alignItems: 'center',
   },
   logoutButtonText: {
     ...typography.button,
-    color: colors.error,
+    color: colors.textMuted,
   },
 });

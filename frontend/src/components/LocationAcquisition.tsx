@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   continueButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.secondary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   retryButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.secondary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   settingsButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.secondary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,

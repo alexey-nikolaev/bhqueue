@@ -2,14 +2,14 @@
  * Color palette for KlubFlow
  * 
  * Dark, industrial Berlin nightlife aesthetic
- * Neon green accent matching the app icon
+ * Klub Orange as primary accent, Neon Green as secondary
  */
 
 export const colors = {
   // Core Brand Palette (matching icon)
   deepNight: '#12121A',      // Primary background (from icon)
-  neonGreen: '#00E676',      // Main accent - neon green from icon ring
-  klubOrange: '#FF8C00',     // Secondary accent - orange from icon K
+  klubOrange: '#FF8C00',     // Main accent - orange from icon K
+  neonGreen: '#00E676',      // Secondary accent - neon green from icon ring
   cardSlate: '#1E1E28',      // Card/surface background (from icon)
   pureWhite: '#FFFFFF',      // Primary headers, high-importance text
   mutedGrey: '#8E8E93',      // Secondary text, inactive tab icons
@@ -20,14 +20,14 @@ export const colors = {
   surfaceLight: '#2A2A36',
   
   // Brand colors
-  accent: '#00E676',         // Neon Green (main accent)
-  accentLight: '#69F0AE',
-  accentDark: '#00C853',
+  accent: '#FF8C00',         // Klub Orange (main accent)
+  accentLight: '#FFA940',
+  accentDark: '#CC7000',
   
-  // Secondary accent (orange)
-  secondary: '#FF8C00',      // Klub Orange
-  secondaryLight: '#FFA940',
-  secondaryDark: '#CC7000',
+  // Secondary accent (green)
+  secondary: '#00E676',      // Neon Green
+  secondaryLight: '#69F0AE',
+  secondaryDark: '#00C853',
   
   // Text
   textPrimary: '#FFFFFF',

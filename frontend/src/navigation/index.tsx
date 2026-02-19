@@ -45,6 +45,7 @@ function AuthNavigator() {
     <AuthStack.Navigator
       screenOptions={{
         headerShown: false,
+        animation: 'default',
       }}
     >
       <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -88,6 +89,7 @@ function MainNavigator() {
     <MainStack.Navigator
       screenOptions={{
         headerShown: false,
+        animation: 'default',
       }}
     >
       <MainStack.Screen name="ClubSelect" component={ClubSelectScreen} />
@@ -106,16 +108,7 @@ function MainNavigator() {
 
 // Root navigator
 export default function Navigation() {
-  const { isAuthenticated, isLoading } = useAuthStore();
-
-  // Show nothing while checking auth state
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>KlubFlow</Text>
-      </View>
-    );
-  }
+  const { isAuthenticated } = useAuthStore();
 
   return (
     <NavigationContainer>
@@ -125,18 +118,6 @@ export default function Navigation() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    letterSpacing: 4,
-  },
   tabBar: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,

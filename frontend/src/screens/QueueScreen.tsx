@@ -177,9 +177,6 @@ export default function QueueScreen() {
       {/* Checkpoint Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Where are you?</Text>
-        <Text style={styles.sectionSubtitle}>
-          Tap when you reach a landmark
-        </Text>
         
         <View style={styles.checkpointGrid}>
           {queueMarkers.map((marker, index) => (
@@ -249,7 +246,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   queueTypeBadge: {
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: colors.secondary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -257,7 +254,7 @@ const styles = StyleSheet.create({
   },
   queueTypeText: {
     ...typography.bodySmall,
-    color: colors.accent,
+    color: colors.buttonText,
     fontWeight: '600',
   },
   waitCard: {
@@ -273,7 +270,7 @@ const styles = StyleSheet.create({
   },
   waitValue: {
     ...typography.h1,
-    color: colors.accent,
+    color: colors.secondary,
     marginTop: spacing.xs,
   },
   section: {
@@ -307,7 +304,7 @@ const styles = StyleSheet.create({
   },
   checkpointActive: {
     backgroundColor: colors.surface,
-    borderColor: colors.accent,
+    borderColor: colors.secondary,
     borderWidth: 2,
   },
   checkpointText: {
@@ -315,7 +312,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   checkpointTextActive: {
-    color: colors.accent,
+    color: colors.secondary,
     fontWeight: '600',
   },
   resultButtonsRow: {
@@ -330,12 +327,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   admittedButton: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.accent,
   },
   rejectedButton: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: colors.border,
   },
   resultButtonText: {
     ...typography.button,
@@ -344,7 +341,7 @@ const styles = StyleSheet.create({
   },
   rejectedButtonText: {
     ...typography.button,
-    color: colors.error,
+    color: colors.textPrimary,
     fontSize: 16,
   },
   leaveButton: {

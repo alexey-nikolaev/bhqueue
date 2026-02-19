@@ -169,7 +169,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    ...typography.h1,
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.textPrimary,
     letterSpacing: 2,
     textAlign: 'center',
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.secondary,
     marginLeft: spacing.xs,
   },
 });

@@ -179,15 +179,6 @@ export default function HomeScreen() {
     });
   };
 
-  if (isLoading && !clubStatus) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Location Acquisition Modal */}
@@ -323,7 +314,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.secondary,
   },
   container: {
     flex: 1,
@@ -333,25 +324,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: spacing.md,
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
   header: {
     marginBottom: spacing.xl,
     alignItems: 'center',
   },
   clubName: {
-    ...typography.h2,
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.textPrimary,
-    letterSpacing: 4,
+    letterSpacing: 2,
   },
   subtitle: {
     ...typography.bodySmall,
@@ -419,7 +400,7 @@ const styles = StyleSheet.create({
   },
   waitValue: {
     ...typography.h1,
-    color: colors.accent,
+    color: colors.secondary,
     marginTop: spacing.xs,
   },
   waitHint: {
