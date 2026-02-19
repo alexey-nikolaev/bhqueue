@@ -65,6 +65,11 @@ For each message, extract:
    - "very_long": to metro sign or beyond, >120 min
 
 2. **wait_minutes**: Estimated wait time in minutes (integer or null)
+   - If queue_length is "none", set wait_minutes to 0
+   - If queue_length is "short", wait_minutes should be ~15-30
+   - If queue_length is "medium", wait_minutes should be ~30-60
+   - If queue_length is "long", wait_minutes should be ~60-120
+   - If queue_length is "very_long", wait_minutes should be ~120+
 
 3. **spatial_marker**: The landmark mentioned (use canonical names from list above, or null)
 
@@ -159,7 +164,7 @@ def parse_with_ai(
             user_content = f"Time: {timestamp.strftime('%A %H:%M')}\n\n{user_content}"
         
         response = client.messages.create(
-            model="claude-3-5-haiku-latest",  # Fast and cost-effective
+            model="claude-sonnet-4-6",  # Fast and cost-effective
             max_tokens=200,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
@@ -177,9 +182,24 @@ def parse_with_ai(
         
         data = json.loads(response_text)
         
+        # Get values from response
+        queue_length = data.get("queue_length")
+        wait_minutes = data.get("wait_minutes")
+        
+        # Fallback: infer wait_minutes from queue_length if not provided
+        if wait_minutes is None and queue_length:
+            wait_map = {
+                "none": 0,
+                "short": 20,
+                "medium": 45,
+                "long": 90,
+                "very_long": 150,
+            }
+            wait_minutes = wait_map.get(queue_length)
+        
         return AIParseResult(
-            queue_length=data.get("queue_length"),
-            wait_minutes=data.get("wait_minutes"),
+            queue_length=queue_length,
+            wait_minutes=wait_minutes,
             spatial_marker=data.get("spatial_marker"),
             rejection_rate=data.get("rejection_rate"),
             bouncer=data.get("bouncer"),
@@ -256,7 +276,7 @@ def parse_batch_with_ai(
             batch_content += f"\nRespond with a JSON array of {len(batch)} objects, one for each message in order."
             
             response = client.messages.create(
-                model="claude-3-5-haiku-latest",
+                model="claude-sonnet-4-6",
                 max_tokens=200 * len(batch),
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": batch_content}],
@@ -357,7 +377,7 @@ Respond with a JSON object:
 ```"""
         
         response = client.messages.create(
-            model="claude-3-5-haiku-latest",
+            model="claude-sonnet-4-6",
             max_tokens=1500,
             system="You analyze Berghain queue data from Telegram messages. Be concise and data-focused.",
             messages=[{"role": "user", "content": analysis_prompt}],
