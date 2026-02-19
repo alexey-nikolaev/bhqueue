@@ -62,6 +62,7 @@ export default function HomeScreen() {
 
   // Handle join queue button press - show queue type selection
   const handleJoinQueue = () => {
+    console.log('handleJoinQueue called, showing queue type selection');
     Alert.alert(
       'Select Queue Type',
       'Which queue are you joining?',
@@ -85,12 +86,14 @@ export default function HomeScreen() {
 
   // Check location permission and join queue
   const checkLocationAndJoin = async (queueType: 'main' | 'guest_list' | 'reentry') => {
+    console.log('checkLocationAndJoin called with:', queueType);
     // ==========================================================================
     // TESTING MODE: Set to false for production
     // ==========================================================================
     const TESTING_MODE = false;
     
     if (TESTING_MODE) {
+      console.log('TESTING_MODE is true, using test coordinates');
       // Use test coordinates without GPS modal
       await doJoinQueueWithCoords(queueType, 
         queueType === 'main' ? 52.5086 : 52.5113,
@@ -101,6 +104,7 @@ export default function HomeScreen() {
     }
     
     // Production: Show location acquisition modal
+    console.log('Setting showLocationModal to TRUE');
     setPendingQueueType(queueType);
     setShowLocationModal(true);
   };
@@ -269,7 +273,14 @@ export default function HomeScreen() {
       {clubStatus?.is_open && (
         <TouchableOpacity 
           style={[styles.actionButton, isJoining && styles.actionButtonDisabled]}
-          onPress={session ? handleContinueQueue : handleJoinQueue}
+          onPress={() => {
+            console.log('Button pressed, session exists:', !!session);
+            if (session) {
+              handleContinueQueue();
+            } else {
+              handleJoinQueue();
+            }
+          }}
           disabled={isJoining}
         >
           {isJoining ? (

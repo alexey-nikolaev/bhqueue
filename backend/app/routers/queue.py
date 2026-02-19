@@ -558,8 +558,14 @@ async def leave_queue(
     """
     Leave the queue voluntarily (without admission result).
     
-    Use this when user decides to leave without waiting for the result.
+    Deletes only the user's personal session data:
+    - Position updates (GPS tracking records)
+    - The session itself
+    
+    Keeps the queue length observation (ParsedUpdate) as it's valid community data.
     """
+    from sqlalchemy import delete
+    
     # Get active session
     result = await db.execute(
         select(QueueSession)
@@ -576,9 +582,15 @@ async def leave_queue(
             detail="No active queue session.",
         )
     
-    # Update session
-    session.result = QueueResult.LEFT.value
-    session.result_at = datetime.utcnow()
+    # Delete position updates for this session (personal GPS data)
+    await db.execute(
+        delete(PositionUpdate).where(PositionUpdate.session_id == session.id)
+    )
+    
+    # Delete the session itself
+    await db.execute(
+        delete(QueueSession).where(QueueSession.id == session.id)
+    )
     
     await db.commit()
     

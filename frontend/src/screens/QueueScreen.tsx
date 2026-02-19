@@ -17,6 +17,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
@@ -108,30 +109,33 @@ export default function QueueScreen() {
 
   if (!session) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.noSessionText}>No active queue session</Text>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.noSessionText}>No active queue session</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.accent}
-        />
-      }
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
+      >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>In Queue</Text>
@@ -217,17 +221,23 @@ export default function QueueScreen() {
         </TouchableOpacity>
       )}
 
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   content: {
     padding: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
   header: {

@@ -13,14 +13,22 @@ import {
   Modal,
   ActivityIndicator,
   TouchableOpacity,
+  Linking,
+  Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { colors, spacing, borderRadius } from '../theme';
 
 // Berghain coordinates (center of queue area)
 const BERGHAIN_LAT = 52.5107;
 const BERGHAIN_LNG = 13.4430;
 const MAX_DISTANCE_METERS = 500; // Must be within 500m of Berghain
+
+// =============================================================================
+// TESTING: Set to true to skip Berghain distance validation
+// =============================================================================
+const SKIP_LOCATION_VALIDATION = true;
+const MIN_SPINNER_TIME = 3000; // Show spinner for at least 3 seconds (for testing UX)
 
 // Accuracy thresholds
 const TARGET_ACCURACY = 15; // meters - ideal for landmark assignment
@@ -75,7 +83,9 @@ export default function LocationAcquisition({
   const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
+    console.log('LocationAcquisition: visible changed to', visible);
     if (visible) {
+      console.log('LocationAcquisition: Starting acquisition...');
       startLocationAcquisition();
     } else {
       cleanup();
@@ -95,6 +105,15 @@ export default function LocationAcquisition({
     }
   };
 
+  // Open device settings for the app
+  const openSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      Linking.openSettings();
+    }
+  };
+
   const startLocationAcquisition = async () => {
     setStatus('acquiring');
     setCurrentAccuracy(null);
@@ -103,11 +122,21 @@ export default function LocationAcquisition({
     startTimeRef.current = Date.now();
 
     try {
-      // First check permission
+      // First check current permission status
+      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+      
+      if (currentStatus === 'denied') {
+        // Permission was previously denied - need to go to Settings
+        setStatus('error');
+        setMessage('Location access is off.\nEnable it in Settings to join.');
+        return;
+      }
+      
+      // Request permission (will prompt if 'undetermined', or return current status)
       const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
       if (permStatus !== 'granted') {
         setStatus('error');
-        onError('Location permission denied');
+        setMessage('Location permission is required to join the queue.');
         return;
       }
 
@@ -143,8 +172,17 @@ export default function LocationAcquisition({
           }
 
           // Check if we've reached target accuracy
-          if (accuracy <= TARGET_ACCURACY) {
+          // Also ensure minimum spinner time for better UX
+          const elapsedTime = Date.now() - startTimeRef.current;
+          if (accuracy <= TARGET_ACCURACY && elapsedTime >= MIN_SPINNER_TIME) {
             finishWithLocation(newLocation);
+          } else if (accuracy <= TARGET_ACCURACY) {
+            // Good accuracy but need to wait for minimum spinner time
+            setMessage('Got accurate position! Finishing...');
+            const remainingTime = MIN_SPINNER_TIME - elapsedTime;
+            setTimeout(() => {
+              finishWithLocation(newLocation);
+            }, remainingTime);
           }
         }
       );
@@ -178,7 +216,7 @@ export default function LocationAcquisition({
     setStatus('validating');
     setMessage('Checking if you\'re at Berghain...');
 
-    // Validate distance to Berghain
+    // Validate distance to Berghain (skip in testing mode)
     const distance = getDistanceMeters(
       location.latitude,
       location.longitude,
@@ -186,21 +224,30 @@ export default function LocationAcquisition({
       BERGHAIN_LNG
     );
 
-    if (distance > MAX_DISTANCE_METERS) {
+    if (!SKIP_LOCATION_VALIDATION && distance > MAX_DISTANCE_METERS) {
       setStatus('error');
       setMessage(`You appear to be ${Math.round(distance)}m from Berghain.`);
       onError(`You need to be at Berghain to join the queue (detected ${Math.round(distance)}m away).`);
       return;
     }
 
-    // Success!
+    // Success! Store location and wait for user to confirm
     setStatus('success');
-    setMessage('Location confirmed!');
+    if (SKIP_LOCATION_VALIDATION && distance > MAX_DISTANCE_METERS) {
+      setMessage(`GPS accuracy: ±${Math.round(location.accuracy)}m\nDistance from Berghain: ${Math.round(distance)}m\n\n(Validation skipped for testing)`);
+    } else {
+      setMessage(`GPS accuracy: ±${Math.round(location.accuracy)}m\nYou're ${Math.round(distance)}m from Berghain.`);
+    }
     
-    // Small delay to show success state
-    setTimeout(() => {
-      onLocationAcquired(location);
-    }, 500);
+    // Store the location for when user taps Continue
+    setBestLocation(location);
+  };
+
+  // Called when user taps Continue on success
+  const handleContinue = () => {
+    if (bestLocation) {
+      onLocationAcquired(bestLocation);
+    }
   };
 
   const getAccuracyColor = () => {
@@ -271,7 +318,25 @@ export default function LocationAcquisition({
 
           {/* Buttons */}
           <View style={styles.buttonContainer}>
-            {status === 'error' && (
+            {status === 'success' && (
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={handleContinue}
+              >
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </TouchableOpacity>
+            )}
+            
+            {status === 'error' && message.includes('Settings') && (
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={openSettings}
+              >
+                <Text style={styles.settingsButtonText}>Open Settings</Text>
+              </TouchableOpacity>
+            )}
+            
+            {status === 'error' && !message.includes('Settings') && (
               <TouchableOpacity
                 style={styles.retryButton}
                 onPress={startLocationAcquisition}
@@ -310,8 +375,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.semibold as any,
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.lg,
     textAlign: 'center',
@@ -325,13 +390,13 @@ const styles = StyleSheet.create({
     marginVertical: spacing.md,
   },
   accuracyLabel: {
-    fontSize: typography.sizes.sm,
+    fontSize: 14,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   accuracyValue: {
-    fontSize: typography.sizes.xxl,
-    fontWeight: typography.weights.bold as any,
+    fontSize: 36,
+    fontWeight: '700',
     marginBottom: spacing.sm,
   },
   progressBar: {
@@ -347,12 +412,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   targetText: {
-    fontSize: typography.sizes.xs,
+    fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
   },
   message: {
-    fontSize: typography.sizes.md,
+    fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
     marginVertical: spacing.md,
@@ -363,6 +428,17 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
   },
+  continueButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
+  },
+  continueButtonText: {
+    color: colors.buttonText,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   retryButton: {
     backgroundColor: colors.accent,
     paddingVertical: spacing.sm,
@@ -371,8 +447,19 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: colors.buttonText,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold as any,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  settingsButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+  },
+  settingsButtonText: {
+    color: colors.buttonText,
+    fontSize: 16,
+    fontWeight: '600',
   },
   cancelButton: {
     backgroundColor: colors.border,
@@ -382,7 +469,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.medium as any,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

@@ -96,7 +96,7 @@ function MainNavigator() {
         name="Queue" 
         component={QueueScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
           animation: 'slide_from_bottom',
         }}
       />
