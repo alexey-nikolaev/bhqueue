@@ -102,9 +102,11 @@ export default function QueueScreen() {
 
   // Get markers for the current session's queue type
   // Main queue has its own landmarks; GL and Re-entry share the same landmarks
+  // Hidden markers are in DB for parsing but not shown in UI
   const glMarkerNames = ['Barriers', 'Love sculpture', 'Garten door', 'ATM', 'Park'];
+  const hiddenMarkers = ['Hellweg'];  // For parsing only, not displayed
   const queueMarkers = session?.queue_type === 'main' 
-    ? markers.filter(m => !glMarkerNames.includes(m.name))
+    ? markers.filter(m => !glMarkerNames.includes(m.name) && !hiddenMarkers.includes(m.name))
     : markers.filter(m => glMarkerNames.includes(m.name));
 
   if (!session) {

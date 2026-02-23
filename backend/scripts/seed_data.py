@@ -125,6 +125,15 @@ MAIN_QUEUE_MARKERS = [
         "typical_wait_minutes": 150,
         "display_order": 7,
     },
+    {
+        "name": "Hellweg",
+        "aliases": ["hellweg", "hardware store", "baumarkt"],
+        "latitude": 52.5080,
+        "longitude": 13.4390,
+        "distance_from_door_meters": 700,
+        "typical_wait_minutes": 180,
+        "display_order": 99,  # Hidden from UI (high order)
+    },
 ]
 
 # Guestlist / Re-entry queue markers (shared between GL and re-entry)

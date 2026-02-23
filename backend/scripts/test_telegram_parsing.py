@@ -25,23 +25,23 @@ settings = get_settings()
 # Berlin timezone
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
-# Target time: Sunday Feb 8, 2026 at 03:00 Berlin time
-# Fetch messages from last 2 hours (01:00 to 03:00) - only messages available at that time
-TARGET_TIME = datetime(2026, 2, 8, 3, 0, 0, tzinfo=BERLIN_TZ)
-START_TIME = datetime(2026, 2, 8, 1, 0, 0, tzinfo=BERLIN_TZ)  # 2 hours before
-END_TIME = datetime(2026, 2, 8, 3, 0, 0, tzinfo=BERLIN_TZ)    # Up to 03:00
+# Target time: Sunday Feb 15, 2026 at 10:00 Berlin time
+# Fetch messages from last hour (09:00 to 10:00)
+TARGET_TIME = datetime(2026, 2, 15, 10, 0, 0, tzinfo=BERLIN_TZ)
+START_TIME = datetime(2026, 2, 15, 9, 0, 0, tzinfo=BERLIN_TZ)   # 1 hour before
+END_TIME = datetime(2026, 2, 15, 10, 0, 0, tzinfo=BERLIN_TZ)    # Up to 10:00
 
-# The app only uses messages from last 30 minutes for queue estimate
-ESTIMATE_WINDOW_START = datetime(2026, 2, 8, 2, 30, 0, tzinfo=BERLIN_TZ)  # 02:30
+# Use full 60 minutes for queue estimate
+ESTIMATE_WINDOW_START = datetime(2026, 2, 15, 9, 0, 0, tzinfo=BERLIN_TZ)  # 09:00
 
 BERGHAIN_GROUP = "berghainberlin"
 
 
 async def main():
     print("=" * 70)
-    print("TELEGRAM PARSING TEST - Sunday Feb 8, 2026 at 03:00")
+    print("TELEGRAM PARSING TEST - Sunday Feb 15, 2026 at 10:00")
     print("=" * 70)
-    print(f"Simulating: What would the app show at 03:00?")
+    print(f"Simulating: What would the app show at 10:00?")
     print(f"Fetching messages from {START_TIME.strftime('%H:%M')} to {END_TIME.strftime('%H:%M')} Berlin time")
     print()
     
@@ -109,7 +109,7 @@ async def main():
     window_messages = [m for m in messages if m["time"] >= ESTIMATE_WINDOW_START]
     
     print("=" * 70)
-    print("MESSAGES IN 30-MIN WINDOW (02:30-03:00)")
+    print("MESSAGES IN 60-MIN WINDOW (09:00-10:00)")
     print("=" * 70)
     
     if not window_messages:
@@ -268,7 +268,7 @@ Respond in JSON format:
             source="telegram_ai_summary",
             source_id=f"ai-summary-{now.timestamp()}",
             author_name="AI Summary",
-            raw_text=f"AI analysis of {len(window_messages)} messages from 02:30-03:00",
+            raw_text=f"AI analysis of {len(window_messages)} messages from 09:00-10:00",
             parsed_wait_minutes=getattr(parsed, 'wait_minutes', None),
             parsed_queue_length=getattr(parsed, 'queue_length', None),
             parsed_spatial_marker=getattr(parsed, 'spatial_marker', None),
